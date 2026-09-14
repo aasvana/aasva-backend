@@ -105,12 +105,17 @@ export class UsersService {
         ? await this.roleRepository.findBy({ id: In(dto.roleIds) })
         : [];
 
+    const isSysOrSuperAdmin = roles.some(
+      (r) => r.name === 'systemadmin' || r.name === 'superadmin',
+    );
+
     const user = this.userRepository.create({
       firstName: dto.firstName,
       lastName: dto.lastName,
       email: dto.email.toLowerCase(),
       passwordHash,
       isActive: dto.isActive ?? true,
+      isApproved: dto.isApproved ?? isSysOrSuperAdmin ?? false,
       roles,
     });
 
@@ -145,6 +150,9 @@ export class UsersService {
     }
     if (dto.isActive !== undefined) {
       user.isActive = dto.isActive;
+    }
+    if (dto.isApproved !== undefined) {
+      user.isApproved = dto.isApproved;
     }
     if (dto.password) {
       user.passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);

@@ -334,6 +334,7 @@ export class AuthService {
       lastName: user.lastName,
       email: user.email,
       isActive: user.isActive,
+      isApproved: user.isApproved ?? false,
       isEmailVerified: user.isEmailVerified,
       detail: user.detail,
       roles: user.roles,
