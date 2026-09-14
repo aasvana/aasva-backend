@@ -11,10 +11,18 @@ export function validateEnv(
   config: Record<string, unknown>,
 ): Record<string, unknown> {
   const isProduction = config.NODE_ENV === 'production';
+  // Database configuration:
+  // Production/Neon can use DATABASE_URL.
+  // Local development can continue using DB_* variables.
+  const hasDatabaseUrl = !!config.DATABASE_URL;
 
-  for (const key of REQUIRED_ENV) {
-    if (!config[key]) {
-      throw new Error(`Missing required environment variable: ${key}`);
+  if (!hasDatabaseUrl) {
+    for (const key of REQUIRED_ENV) {
+      if (!config[key]) {
+        throw new Error(
+          `Missing required database environment variable: ${key} or DATABASE_URL`,
+        );
+      }
     }
   }
 
