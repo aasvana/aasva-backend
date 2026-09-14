@@ -19,6 +19,8 @@ Auth (login/registration/password recovery) and RBAC are implemented.
 ## Directory layout
 
 ```
+api/
+└── index.ts                      # Vercel serverless function entrypoint
 src/
 ├── main.ts                       # bootstrap: prefix, validation pipe, CORS
 ├── app.module.ts                 # root module, global guards registration
@@ -36,6 +38,7 @@ src/
     ├── migrations/               # schema + role/permission seed migrations
     └── seeds/                    # `npm run seed` admin bootstrap
 docs/                             # these per-module docs
+vercel.json                       # Vercel serverless function config & pg bundler inclusion
 ```
 
 ## Setup

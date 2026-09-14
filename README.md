@@ -1,10 +1,7 @@
-<<<<<<< HEAD
-# aasva-backend
-=======
 # Backend
 
 NestJS + TypeORM + PostgreSQL API for the frontend app. Ships with
-registration, login, password recovery, and RBAC.
+registration, login, password recovery, RBAC, travel vouchers, and company settings.
 
 ## Quick start
 
@@ -14,16 +11,22 @@ cp .env.example .env        # set DB_*, secrets, SMTP
 createdb aasvaDB            # PostgreSQL >= 13
 npm run migration:run       # apply schema + seed roles/permissions + superadmin users
 npm run seed                # create bootstrap admin (ADMIN_EMAIL/ADMIN_PASSWORD)
-npm run start:dev           # http://localhost:3000/api
+npm run start:dev           # http://localhost:3300/api
 ```
 
 Health check: `GET /api/health`
+
+## Vercel Deployment
+
+The backend contains Vercel serverless function support configured via `api/index.ts` and `vercel.json`.
+- `api/index.ts` exports the serverless handler and explicitly imports `pg` to ensure Vercel bundles the PostgreSQL driver.
+- `vercel.json` routes requests to `api/index.ts` and includes `node_modules/pg/**` in serverless function builds.
 
 ## Documentation (per module — read these before modifying)
 
 | Doc | Contents |
 | --- | -------- |
-| [00-getting-started.md](docs/00-getting-started.md) | setup, scripts, env, layout |
+| [00-getting-started.md](docs/00-getting-started.md) | setup, scripts, env, layout, Vercel deployment |
 | [01-authentication.md](docs/01-authentication.md) | register, login, refresh, logout, me, change-password |
 | [02-password-recovery.md](docs/02-password-recovery.md) | forgot/reset password flow |
 | [03-rbac.md](docs/03-rbac.md) | roles, permissions, guards, decorators |
@@ -46,4 +49,3 @@ npm run migration:run   # apply migrations
 npm run migration:revert
 npm run seed            # bootstrap admin user
 ```
->>>>>>> 3ea338c (Backend up to live the aasvana portal)

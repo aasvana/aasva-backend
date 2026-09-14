@@ -1,3 +1,4 @@
+import 'pg';
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
 import { User } from '../users/entities/user.entity';
