@@ -37,6 +37,7 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+.env.vercel
 
 # tmp
 /temp
