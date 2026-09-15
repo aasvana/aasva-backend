@@ -1,6 +1,6 @@
 import 'pg';
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { AppConfigService } from './config/app-config.service';
@@ -10,7 +10,9 @@ export async function createApp(): Promise<NestExpressApplication> {
     logger: ['error', 'warn', 'log', 'debug'],
   });
 
-  app.setGlobalPrefix(app.get(AppConfigService).apiPrefix);
+  app.setGlobalPrefix(app.get(AppConfigService).apiPrefix, {
+    exclude: [{ path: '/', method: RequestMethod.GET }],
+  });
   app.useBodyParser('json', { limit: '2mb' });
   app.useGlobalPipes(
     new ValidationPipe({
