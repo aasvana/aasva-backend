@@ -7,6 +7,7 @@ import { JwtUser } from '../../common/decorators/current-user.decorator';
 export interface JwtPayload {
   sub: string;
   email: string;
+  tenantId: string;
   roles: string[];
   permissions: string[];
   modules: string[];
@@ -26,6 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       id: payload.sub,
       email: payload.email,
+      tenantId: payload.tenantId,
       roles: payload.roles ?? [],
       permissions: payload.permissions ?? [],
       modules: payload.modules ?? [],

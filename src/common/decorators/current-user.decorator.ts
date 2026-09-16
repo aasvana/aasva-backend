@@ -3,6 +3,7 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 export interface JwtUser {
   id: string;
   email: string;
+  tenantId: string;
   roles: string[];
   permissions: string[];
   modules: string[];

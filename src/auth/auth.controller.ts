@@ -19,6 +19,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/public.decorator';
+import { SkipSubscriptionGate } from '../common/decorators/skip-subscription-gate.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AppConfigService } from '../config/app-config.service';
 import type { JwtUser } from '../common/decorators/current-user.decorator';
@@ -57,17 +58,20 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipSubscriptionGate()
   async logout(@CurrentUser() user: JwtUser) {
     await this.authService.logout(user);
   }
 
   @Get('me')
+  @SkipSubscriptionGate()
   me(@CurrentUser() user: JwtUser) {
     return this.authService.me(user.id);
   }
 
   @Post('change-password')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipSubscriptionGate()
   async changePassword(
     @CurrentUser() user: JwtUser,
     @Body() dto: ChangePasswordDto,

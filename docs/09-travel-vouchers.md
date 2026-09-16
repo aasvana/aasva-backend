@@ -11,11 +11,17 @@ granted (via seed migration `1760000000012`) to `systemadmin`, `superadmin`, and
 
 ### `confirmation_vouchers`
 
-`id uuid PK`, `voucher_no` (unique, indexed), `customer_name` (indexed),
+`id uuid PK`, `tenant_id` (NOT NULL FK->tenants, indexed), `voucher_no`
+(indexed, **no longer globally unique**), `customer_name` (indexed),
 `company_name` (varchar 255, default `''`), `agent_name` (varchar 255, default
 `''`), `payment_type` (varchar 64, default `''`),
 `journey_date` (timestamptz, nullable, indexed), `data` (JSONB),
 `created_at`, `updated_at`.
+
+**Uniqueness:** `UNIQUE (tenant_id, voucher_no)` — a voucher number can be
+reused across tenants but must be unique within a tenant. Before
+migration `1760000000017` this was `UNIQUE (voucher_no)` (see
+`11-multi-tenancy.md`).
 
 The `data` JSONB column stores the **full form payload** (customer info, flight
 legs, travellers, hotels, itinerary) — the entity's denormalized columns are a
@@ -117,6 +123,8 @@ top-level column **and** rewrites `data.voucherNo`; a duplicate → `409`.
 - `src/database/migrations/1760000000011-CreateConfirmationVouchersTable.ts`
 - `src/database/migrations/1760000000012-SeedTravelVouchersPermissions.ts`
 - `src/database/migrations/1760000000015-AddAgentNameToConfirmationVouchers.ts`
+- `src/database/migrations/1760000000017-AddTenantScoping.ts` (adds `tenant_id`, scopes uniqueness to `(tenant_id, voucher_no)`)
+- Multi-tenancy model: `11-multi-tenancy.md`
 
 ## Agent checklist
 

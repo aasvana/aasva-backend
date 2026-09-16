@@ -10,9 +10,13 @@ import {
   ProfileTypesController,
   UserDetailsController,
 } from './users.controller';
+import { TenantsModule } from '../tenants/tenants.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, ProfileType, UserDetail, Role])],
+  imports: [
+    TypeOrmModule.forFeature([User, ProfileType, UserDetail, Role]),
+    TenantsModule,
+  ],
   controllers: [UsersController, ProfileTypesController, UserDetailsController],
   providers: [UsersService],
   exports: [UsersService],

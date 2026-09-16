@@ -7,18 +7,21 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompanySetting } from './entities/company-setting.entity';
 import { UpdateCompanySettingsDto } from './dto/update-company-settings.dto';
+import { OnboardCompanyDto } from './dto/onboard-company.dto';
 import { ImageKitService } from '../imagekit/imagekit.service';
 import { AppConfigService } from '../config/app-config.service';
+import { TenantContext } from '../common/tenant/tenant-context.service';
+import { TenantsService } from '../tenants/tenants.service';
 
 const COMPANY_DEFAULTS: Partial<CompanySetting> = {
-  name: 'Island Beach Vacation',
+  name: 'Aasvana',
   shortName: 'Xm',
-  email: 'admin@islandbeachvacation.com',
-  phone: '+1 (808) 555-1234',
-  address: '123 Island Beach Rd, Maui, HI 96753',
-  website: 'https://www.islandbeachvacation.com',
+  email: 'admin@aasvana.com',
+  phone: '+91 90000 00000',
+  address: 'Aasvana HQ',
+  website: 'https://www.aasvana.com',
   tagline:
-    'Island Beach Vacation is a powerful and flexible web application template designed for building modern, responsive, and user-friendly applications.',
+    'Aasvana is a powerful and flexible web application template designed for building modern, responsive, and user-friendly applications.',
   logo: '/images/logo-light.svg',
   currency: 'USD',
   gstin: '',
@@ -42,18 +45,35 @@ export class CompanyService {
     private readonly companyRepository: Repository<CompanySetting>,
     private readonly imageKitService: ImageKitService,
     private readonly config: AppConfigService,
+    private readonly tenantContext: TenantContext,
+    private readonly tenantsService: TenantsService,
   ) {}
 
   async getOrCreate(): Promise<CompanySetting> {
-    const existing = await this.companyRepository.find({
+    const tenantId = this.tenantContext.require();
+    const existing = await this.companyRepository.findOne({
+      where: { tenantId },
       order: { createdAt: 'ASC' },
-      take: 1,
     });
-    if (existing.length > 0) {
-      return existing[0];
+    if (existing) {
+      return existing;
     }
-    const created = this.companyRepository.create(COMPANY_DEFAULTS);
+    const tenant = await this.tenantsService.findById(tenantId);
+    const created = this.companyRepository.create({
+      ...COMPANY_DEFAULTS,
+      name: tenant?.name ?? COMPANY_DEFAULTS.name,
+      tenantId,
+    });
     return this.companyRepository.save(created);
+  }
+
+  async onboard(dto: OnboardCompanyDto): Promise<CompanySetting> {
+    const tenantId = this.tenantContext.require();
+    const name = dto.name.trim();
+    if (name) {
+      await this.tenantsService.rename(tenantId, name);
+    }
+    return this.update(dto);
   }
 
   async update(dto: UpdateCompanySettingsDto): Promise<CompanySetting> {

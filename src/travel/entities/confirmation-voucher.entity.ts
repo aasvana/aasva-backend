@@ -3,16 +3,29 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('confirmation_vouchers')
+@Index('UQ_confirmation_vouchers_tenant_voucher', ['tenantId', 'voucherNo'], {
+  unique: true,
+})
 export class ConfirmationVoucher {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index('IDX_confirmation_vouchers_voucher_no', { unique: true })
+  @Index('IDX_confirmation_vouchers_tenant_id')
+  @Column({ type: 'uuid', name: 'tenant_id' })
+  tenantId: string;
+
+  @ManyToOne(() => Tenant)
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
+
   @Column({ type: 'varchar', length: 64, name: 'voucher_no' })
   voucherNo: string;
 

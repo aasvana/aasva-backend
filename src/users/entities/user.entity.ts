@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   JoinTable,
   ManyToMany,
@@ -13,8 +14,8 @@ import {
 } from 'typeorm';
 import { Role } from '../../roles/entities/role.entity';
 import { OAuthIdentity } from '../../auth/entities/oauth-identity.entity';
-import { ProfileType } from './profile-type.entity';
 import { UserDetail } from './user-detail.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('users')
 export class User {
@@ -63,6 +64,14 @@ export class User {
 
   @Column({ type: 'boolean', name: 'is_email_verified', default: false })
   isEmailVerified: boolean;
+
+  @Index('IDX_users_tenant_id')
+  @Column({ type: 'uuid', name: 'tenant_id' })
+  tenantId: string;
+
+  @ManyToOne(() => Tenant)
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
 
   @OneToOne(() => UserDetail, (detail) => detail.user)
   detail: UserDetail;

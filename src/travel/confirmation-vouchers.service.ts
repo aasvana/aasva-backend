@@ -11,6 +11,7 @@ import { CreateConfirmationVoucherDto } from './dto/create-confirmation-voucher.
 import { UpdateConfirmationVoucherDto } from './dto/update-confirmation-voucher.dto';
 import { FindVouchersQueryDto } from './dto/find-vouchers-query.dto';
 import { VoucherDataDto } from './dto/voucher-data.dto';
+import { TenantContext } from '../common/tenant/tenant-context.service';
 
 export interface PaginatedVouchers {
   items: ConfirmationVoucher[];
@@ -24,34 +25,40 @@ export class ConfirmationVouchersService {
   constructor(
     @InjectRepository(ConfirmationVoucher)
     private readonly voucherRepository: Repository<ConfirmationVoucher>,
+    private readonly tenantContext: TenantContext,
   ) {}
 
   findAll(query: FindVouchersQueryDto): Promise<PaginatedVouchers> {
     const { page, limit, search, sortBy, sortOrder } = query;
+    const tenantId = this.tenantContext.require();
 
     const qb = this.voucherRepository
       .createQueryBuilder('voucher')
-      .where(
-        search
-          ? '(voucher.voucherNo ILIKE :search OR voucher.customerName ILIKE :search OR voucher.companyName ILIKE :search OR voucher.agentName ILIKE :search OR voucher.paymentType ILIKE :search)'
-          : '1=1',
-        search ? { search: `%${search}%` } : undefined,
-      )
+      .where('voucher.tenantId = :tenantId', { tenantId });
+
+    if (search) {
+      qb.andWhere(
+        '(voucher.voucherNo ILIKE :search OR voucher.customerName ILIKE :search OR voucher.companyName ILIKE :search OR voucher.agentName ILIKE :search OR voucher.paymentType ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    return qb
       .orderBy(
         `voucher.${sortBy}`,
         sortOrder.toUpperCase() as 'ASC' | 'DESC',
         'NULLS LAST',
       )
       .skip((page - 1) * limit)
-      .take(limit);
-
-    return qb
+      .take(limit)
       .getManyAndCount()
       .then(([items, total]) => ({ items, total, page, limit }));
   }
 
   async findById(id: string): Promise<ConfirmationVoucher> {
-    const voucher = await this.voucherRepository.findOne({ where: { id } });
+    const voucher = await this.voucherRepository.findOne({
+      where: { id, tenantId: this.tenantContext.require() },
+    });
     if (!voucher) {
       throw new NotFoundException('Confirmation voucher not found');
     }
@@ -86,17 +93,19 @@ export class ConfirmationVouchersService {
   async create(
     dto: CreateConfirmationVoucherDto,
   ): Promise<ConfirmationVoucher> {
+    const tenantId = this.tenantContext.require();
     const existing = await this.voucherRepository.findOne({
-      where: { voucherNo: dto.voucherNo },
+      where: { voucherNo: dto.voucherNo, tenantId },
     });
     if (existing) {
       throw new ConflictException(
         `A confirmation voucher with number ${dto.voucherNo} already exists`,
       );
     }
-    const entity = this.voucherRepository.create(
-      ConfirmationVouchersService.buildEntity(dto.voucherNo, dto.data),
-    );
+    const entity = this.voucherRepository.create({
+      ...ConfirmationVouchersService.buildEntity(dto.voucherNo, dto.data),
+      tenantId,
+    });
     return this.voucherRepository.save(entity);
   }
 
@@ -104,12 +113,13 @@ export class ConfirmationVouchersService {
     id: string,
     dto: UpdateConfirmationVoucherDto,
   ): Promise<ConfirmationVoucher> {
+    const tenantId = this.tenantContext.require();
     const voucher = await this.findById(id);
     const nextVoucherNo = dto.voucherNo ?? voucher.voucherNo;
 
     if (dto.voucherNo && dto.voucherNo !== voucher.voucherNo) {
       const existing = await this.voucherRepository.findOne({
-        where: { voucherNo: dto.voucherNo },
+        where: { voucherNo: dto.voucherNo, tenantId },
       });
       if (existing) {
         throw new ConflictException(
@@ -135,7 +145,10 @@ export class ConfirmationVouchersService {
   }
 
   async remove(id: string): Promise<void> {
-    const result = await this.voucherRepository.delete(id);
+    const result = await this.voucherRepository.delete({
+      id,
+      tenantId: this.tenantContext.require(),
+    });
     if (!result.affected) {
       throw new NotFoundException('Confirmation voucher not found');
     }

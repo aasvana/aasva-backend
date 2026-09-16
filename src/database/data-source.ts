@@ -11,6 +11,7 @@ import { PasswordResetToken } from '../auth/entities/password-reset-token.entity
 import { OAuthIdentity } from '../auth/entities/oauth-identity.entity';
 import { ConfirmationVoucher } from '../travel/entities/confirmation-voucher.entity';
 import { CompanySetting } from '../company/entities/company-setting.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -27,6 +28,7 @@ export const AppDataSource = new DataSource({
         database: process.env.DB_DATABASE ?? 'aasvaDB',
       }),
   entities: [
+    Tenant,
     User,
     ProfileType,
     UserDetail,

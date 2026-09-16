@@ -11,6 +11,8 @@ import { AuthModule } from './auth/auth.module';
 import { TravelModule } from './travel/travel.module';
 import { CompanyModule } from './company/company.module';
 import { ImageKitModule } from './imagekit/imagekit.module';
+import { TenantsModule } from './tenants/tenants.module';
+import { TenantModule } from './common/tenant/tenant.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -31,6 +33,8 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
         limit: 100,
       },
     ]),
+    TenantModule,
+    TenantsModule,
     MailModule,
     UsersModule,
     RolesModule,

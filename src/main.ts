@@ -2,6 +2,7 @@ import 'pg';
 import { NestFactory } from '@nestjs/core';
 import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { AppConfigService } from './config/app-config.service';
 
@@ -12,6 +13,11 @@ export async function createApp(): Promise<NestExpressApplication> {
 
   app.setGlobalPrefix(app.get(AppConfigService).apiPrefix, {
     exclude: [{ path: '/', method: RequestMethod.GET }],
+  });
+  app.disable('etag');
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
   });
   app.useBodyParser('json', { limit: '2mb' });
   app.useGlobalPipes(

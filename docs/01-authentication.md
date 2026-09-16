@@ -5,8 +5,10 @@ Module: `src/auth/` + `src/users/`
 ## Concepts
 
 - **Access token**: short-lived JWT (default `15m`). Claims:
-  `sub` (user id), `email`, `roles: string[]`, `permissions: string[]`.
-  Sent as `Authorization: Bearer <token>`.
+  `sub` (user id), `email`, `tenantId`, `roles: string[]`, `permissions: string[]`.
+  Sent as `Authorization: Bearer <token>`. `tenantId` is used by the global
+  tenant interceptor to scope every request to the user's tenant (see
+  [`11-multi-tenancy.md`](11-multi-tenancy.md)).
 - **Refresh token**: opaque 96-char hex, rotated on every refresh. Only its
   SHA-256 hash + expiry are stored on the user row (`refresh_token_hash`,
   `refresh_token_expires_at`). Sent/returned in the response body (not a cookie).
@@ -24,12 +26,16 @@ Body:
   "firstName": "Jane",
   "lastName": "Doe",
   "email": "jane@example.com",
-  "password": "Password1"
+  "password": "Password1",
+  "tenantName": "Acme Co"   // optional
 }
 ```
 
 Password rule: 8–128 chars, must contain upper + lower + digit.
-Creates the user with the default `user` role, then auto-logs in.
+Creates the user with the default `user` role, creates a **private tenant**
+(the optional `tenantName`, or `${firstName} ${lastName} Company`), attaches the
+user to it, then auto-logs in. `user.tenantId` and the JWT `tenantId` claim
+carry the new tenant's id.
 
 Response `201`:
 
@@ -37,7 +43,7 @@ Response `201`:
 {
   "accessToken": "<jwt>",
   "refreshToken": "<96-char-hex>",
-  "user": { "id": "...", "email": "jane@example.com", "roles": [{ "name": "user", ... }] }
+  "user": { "id": "...", "email": "jane@example.com", "tenantId": "<uuid>", "roles": [{ "name": "user", ... }] }
 }
 ```
 
@@ -77,8 +83,12 @@ Body: `{ "currentPassword", "newPassword" }`.
 ## Auth guard flow
 
 1. `JwtAuthGuard` (global) validates the bearer JWT unless the route is `@Public()`.
-2. `JwtStrategy` reads claims into `req.user: { id, email, roles, permissions }`.
+2. `JwtStrategy` reads claims into `req.user: { id, email, tenantId, roles, permissions }`.
 3. Handlers read it via `@CurrentUser()` (see `common/decorators/current-user.decorator.ts`).
+4. The global `TenantInterceptor` (see `common/tenant/`) reads `req.user.tenantId`
+   and runs the handler inside `AsyncLocalStorage` so every scoped service query
+   stays within the caller's tenant. Tokens issued before the tenancy migration
+   lack `tenantId` and are rejected with `403` until refreshed/relogin.
 
 ## Files
 

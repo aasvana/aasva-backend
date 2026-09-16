@@ -8,9 +8,25 @@ Protected by `@Roles(Role.ADMIN)` at the controller level, plus
 ## Schema
 
 ### `users`
-`id uuid PK`, `first_name`, `last_name`, `email` (unique), `password_hash`
+`id uuid PK`, `tenant_id` (NOT NULL FK->tenants, indexed), `first_name`,
+`last_name`, `email` (unique globally), `password_hash`
 (not selected by default), `refresh_token_hash`, `refresh_token_expires_at`,
 `is_active`, `is_email_verified`, `created_at`, `updated_at`.
+
+All admin-originated queries (list, detail, update, delete, module overrides)
+are filtered by the caller's `tenantId` — a plain `admin` in tenant A never
+sees or can modify a user in tenant B (cross-tenant lookups surface as `404`).
+User rows are created within the caller's tenant (`POST /users`) or within a
+fresh private tenant (public registration — see `11-multi-tenancy.md`).
+
+**Platform admins see everyone.** Callers whose JWT roles include
+`systemadmin` or `superadmin` bypass the tenant filter on all of the above
+operations: `GET /users` lists users across every tenant (each item includes a
+nested `tenant` object — `id`, `name`, `slug` — so the UI can show where a
+user belongs), and `findByIdScoped`-backed routes (`/users/:id`, `PATCH`,
+`DELETE`, `/user-details/:userId`) operate across tenants too. `DELETE` for a
+platform admin still refuses to touch `superadmin`/`systemadmin` users, and
+`PATCH /users/:id` still refuses to change a `systemadmin` user's roles.
 
 ### `user_details`
 `id uuid PK`, `user_id` (unique FK→users, cascade delete), `date_of_birth`,
@@ -35,6 +51,15 @@ The `details` JSONB column stores:
 | PATCH  | `/profile-types/:id` | `users:update` | update profile type config (e.g. modules) |
 | GET    | `/user-details/:userId` | `users:read` | single user detail (404 if missing) |
 | PATCH  | `/user-details/:userId` | `users:update` | partial update user details |
+| PATCH  | `/users/:id/subscription` | `users:update` | mark the user's tenant subscription paid/unpaid |
+
+### PATCH `/users/:id/subscription`
+
+Marks the **tenant** the user belongs to as paid (`active`), unpaid
+(`inactive`), or `trial`. Body: `{ "status", "plan"?, "paidUntil"? }` (ISO-8601
+for `paidUntil`). Defaults when omitted: `active` → `plan: "monthly"` and
+`paid_until = now() + 30d`; `trial` → `paid_until = now() + 90d`. See
+`12-subscriptions.md` for the payment gate this drives.
 
 ### GET `/profile-types`
 
@@ -71,11 +96,17 @@ the user's profile type (pass `null` or omit to clear it).
 Query params: `page` (default 1), `limit` (default 20, max 100), `search`
 (ILIKE match on first name / last name / email).
 
+Tenant scoping: plain `admin`/`user` callers only see users of their own
+tenant; `systemadmin`/`superadmin` callers see all tenants. In the
+cross-tenant response each user item carries its `tenantId` and a nested
+`tenant: { id, name, slug }` object (`tenant` is `null`/absent in
+tenant-scoped responses).
+
 Response:
 
 ```json
 {
-  "items": [ { "id": "...", "email": "...", "roles": [...], "createdAt": "..." } ],
+  "items": [ { "id": "...", "email": "...", "tenantId": "...", "tenant": { "id": "...", "name": "...", "slug": "..." }, "roles": [...], "createdAt": "..." } ],
   "total": 2,
   "page": 1,
   "limit": 20
@@ -119,10 +150,15 @@ Any subset of the POST body. Setting `password` re-hashes it; setting
 - `src/users/users.service.ts`, `src/users/users.controller.ts`
 - `src/users/dto/{create-user,update-user,find-users-query}.dto.ts`
 
+`isPlatformAdmin(roles)` (exported from `users.service.ts`) drives the
+cross-tenant escape hatch; the controller passes `currentUser.roles` into
+every tenant-scoped service method.
+
 ## Agent checklist
 
 - [ ] Admin lists users with pagination + search
 - [ ] Non-admin → `403`; missing role/permission enforced
 - [ ] Create, update, delete a user work; delete → `204`
 - [ ] `GET /users/:id` for a nonexistent id → `404`
+- [ ] Plain admin sees only their tenant; `systemadmin`/`superadmin` sees all tenants (with `tenant` object)
 - [ ] Response never contains `passwordHash` / `refreshTokenHash`

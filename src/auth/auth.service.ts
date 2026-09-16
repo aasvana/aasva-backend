@@ -14,6 +14,8 @@ import { IsNull, Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { UserDetail } from '../users/entities/user-detail.entity';
+import { TenantsService } from '../tenants/tenants.service';
+import type { TenantSubscription } from '../tenants/tenants.constants';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { OAuthIdentity } from './entities/oauth-identity.entity';
 import { MailService } from '../mail/mail.service';
@@ -41,6 +43,7 @@ export interface AuthResult {
   accessToken: string;
   refreshToken: string;
   user: SafeUser;
+  subscription: TenantSubscription;
 }
 
 export type SafeUser = Omit<
@@ -49,6 +52,7 @@ export type SafeUser = Omit<
   | 'refreshTokenHash'
   | 'refreshTokenExpiresAt'
   | 'oauthIdentities'
+  | 'tenant'
 > & {
   detail: UserDetail | null;
 };
@@ -61,6 +65,7 @@ export class AuthService {
     @InjectRepository(OAuthIdentity)
     private readonly oauthIdentityRepository: Repository<OAuthIdentity>,
     private readonly usersService: UsersService,
+    private readonly tenantsService: TenantsService,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
     private readonly config: AppConfigService,
@@ -74,7 +79,11 @@ export class AuthService {
       throw new ConflictException('Email is already registered');
     }
 
-    const user = await this.usersService.create({ ...dto, email });
+    const tenantName =
+      dto.tenantName?.trim() || `${dto.firstName} ${dto.lastName} Company`;
+    const tenant = await this.tenantsService.create(tenantName);
+
+    const user = await this.usersService.create({ ...dto, email }, tenant.id);
     await this.usersService.assignDefaultRole(user);
     const fresh = await this.usersService.findById(user.id);
 
@@ -186,9 +195,14 @@ export class AuthService {
     );
   }
 
-  async me(userId: string): Promise<SafeUser> {
+  async me(
+    userId: string,
+  ): Promise<{ user: SafeUser; subscription: TenantSubscription }> {
     const user = await this.usersService.findById(userId);
-    return this.toSafeUser(user);
+    return {
+      user: this.toSafeUser(user),
+      subscription: await this.subscriptionFor(user),
+    };
   }
 
   async loginWithOAuth(profile: GoogleOAuthUser): Promise<AuthResult> {
@@ -223,12 +237,18 @@ export class AuthService {
       return this.issueTokens(existingUser);
     }
 
-    const newUser = await this.usersService.create({
-      firstName,
-      lastName,
-      email,
-      password: randomBytes(32).toString('hex'),
-    });
+    const tenant = await this.tenantsService.create(
+      `${firstName} ${lastName} Company`,
+    );
+    const newUser = await this.usersService.create(
+      {
+        firstName,
+        lastName,
+        email,
+        password: randomBytes(32).toString('hex'),
+      },
+      tenant.id,
+    );
     await this.usersService.assignDefaultRole(newUser);
 
     await this.oauthIdentityRepository.save({
@@ -260,7 +280,18 @@ export class AuthService {
       accessToken,
       refreshToken,
       user: this.toSafeUser(user),
+      subscription: await this.subscriptionFor(user),
     };
+  }
+
+  private async subscriptionFor(user: User): Promise<TenantSubscription> {
+    return (
+      (await this.tenantsService.getSubscription(user.tenantId)) ?? {
+        status: 'inactive',
+        plan: null,
+        paidUntil: null,
+      }
+    );
   }
 
   private signAccessToken(user: User): string {
@@ -277,8 +308,12 @@ export class AuthService {
       ),
     ];
 
-    const profileType = (user as any).profileType as
-      { config: { modules?: string[] } } | undefined;
+    const profileType = (
+      user as unknown as {
+        profileType?: { config?: { modules?: string[] } } | null;
+      }
+    ).profileType;
+
     const profileTypeModules = profileType?.config?.modules
       ? Array.isArray(profileType.config.modules)
         ? [...new Set(profileType.config.modules)]
@@ -313,6 +348,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      tenantId: user.tenantId,
       roles,
       permissions,
       modules,
@@ -333,6 +369,7 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      tenantId: user.tenantId,
       isActive: user.isActive,
       isApproved: user.isApproved ?? false,
       isEmailVerified: user.isEmailVerified,

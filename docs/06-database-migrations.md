@@ -41,8 +41,33 @@ Join: `role_id` FK→roles (cascade), `permission_id` FK→permissions (cascade)
 `updated_at`.
 
 ### `password_reset_tokens`
-`id uuid PK`, `user_id` FK→users (cascade), `token_hash` (unique, sha256),
+`id uuid PK`, `user_id` FK->users (cascade), `token_hash` (unique, sha256),
 `expires_at`, `used_at`, `created_at`. Index on `user_id`.
+
+### `tenants` (multi-tenancy — see [11-multi-tenancy.md](11-multi-tenancy.md))
+
+`id uuid PK`, `name` (varchar 255, NOT NULL), `slug` (text, nullable, unique
+index), `subscription_status` (varchar 20, default `'trial'`),
+`subscription_plan` (varchar 50, nullable), `subscription_paid_until`
+(timestamptz, nullable), `created_at`, `updated_at`. A default tenant
+(`00000000-0000-4000-8000-000000000001`, "Aasvana", slug `aasvana`) is created by
+migration `1760000000017`; its subscription (`active`/`lifetime`) plus the
+subscription columns for all tenants are added by `1760000000018` (see
+`12-subscriptions.md`).
+
+Tenant-owned tables carry a NOT NULL `tenant_id` FK (`ON DELETE CASCADE`) back
+to `tenants`, indexed:
+
+- `users.tenant_id` — index `IDX_users_tenant_id`; `users.email` stays
+  **globally** unique.
+- `company_settings.tenant_id` — unique `UQ_company_settings_tenant`, so a
+  tenant has exactly **one** settings row.
+- `confirmation_vouchers.tenant_id` — index
+  `IDX_confirmation_vouchers_tenant_id`; uniqueness changed from
+  `UNIQUE (voucher_no)` to `UNIQUE (tenant_id, voucher_no)`.
+
+So `company_settings` is a per-tenant singleton rather than a global one, and
+voucher numbers are only unique within a tenant.
 
 ## Migrations (in `src/database/migrations/`)
 
@@ -66,6 +91,15 @@ Join: `role_id` FK→roles (cascade), `permission_id` FK→permissions (cascade)
     `users.module_overrides` into `user_details.details`.
  9. `1760000000009-MoveProfileTypeToUserDetails` — moves `profile_type_id` from
     `users` to `user_details`; migrates existing data.
+ 10. `1760000000017-AddTenantScoping` — creates `tenants`, inserts the default
+    tenant, adds `tenant_id` to `users`/`company_settings`/`confirmation_vouchers`,
+    backfills existing rows to the default tenant, tightens
+    `company_settings` to one row per tenant, and scopes voucher uniqueness to
+    `(tenant_id, voucher_no)`. See `11-multi-tenancy.md`.
+ 11. `1760000000018-AddTenantSubscription` — adds `subscription_status`,
+    `subscription_plan`, and `subscription_paid_until` to `tenants`, backfills
+    existing tenants as `trial` (paid until `now() + 90d`), and sets the default
+    tenant to `active`/`lifetime`. See `12-subscriptions.md`.
 
 TypeORM 1.x derives each migration's timestamp from the **last 13 digits of the
 class name** — keep that suffix when adding migrations
@@ -86,6 +120,8 @@ npm run migration:generate -- src/database/migrations/AddSomething
 `src/database/seeds/run-seeds.ts` → `seedAdminUser()`.
 Creates the bootstrap admin from `ADMIN_EMAIL`/`ADMIN_PASSWORD`
 (defaults: `admin@example.com` / `ChangeMe123!`). Idempotent (skips existing).
+Since `1760000000017`, the admin lands in the **default** tenant
+(`DEFAULT_TENANT_ID`).
 
 ## Notes / gotchas
 

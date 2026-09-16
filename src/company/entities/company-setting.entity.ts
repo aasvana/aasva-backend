@@ -2,14 +2,26 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('company_settings')
+@Index('UQ_company_settings_tenant', ['tenantId'], { unique: true })
 export class CompanySetting {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => Tenant)
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
+
+  @Column({ type: 'uuid', name: 'tenant_id' })
+  tenantId: string;
 
   @Column({ type: 'varchar', length: 255, name: 'name' })
   name: string;

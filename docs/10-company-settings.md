@@ -5,19 +5,32 @@ Module: `src/company/` — read/write API for the company profile, branding
 former frontend-localStorage feature (`useCompanyStore`, persist key
 `xmerge_company`); the frontend store is now a backend-synced cache.
 
-Routes live under `/company`, are protected by `@Permissions(...)`, and are
-granted (via seed migration `1760000000014`) to `systemadmin`, `superadmin`, and
-`admin` roles.
+Routes live under `/company` and are **authenticated (JWT) only** — no
+`@Permissions()` decorator. Access control is the tenant itself: every route is
+scoped by the caller's `tenantId` (global `TenantInterceptor`), so a user can
+only ever read/update their **own** tenant's company row. This is intentional —
+every user sets up and owns their company profile in onboarding (see
+`POST /company/onboarding` below), so company settings are **not** admin-only.
+The `company:read` / `company:update` permissions seeded by migration
+`1760000000014` are retained in the catalog for future role-based gating but are
+not required by any route today (non-admin `user`-role accounts can manage their
+company).
 
 ## Schema
 
 ### `company_settings`
 
-A **singleton** table — the service always returns/updates its first row
-(created on first read if empty). Seeded with a default row (mirroring the
-frontend `brand` constants) by migration `1760000000013`.
+A **per-tenant singleton** — `getOrCreate()` always returns/creates the first
+row for the caller's `tenantId` (via `TenantContext`). Seeded with a default
+row (mirroring the frontend `brand` constants) for the default tenant by
+migration `1760000000013`, then backfilled to every pre-existing tenant by
+migration `1760000000017`. `UNIQUE (tenant_id)` (added by migration
+`1760000000017`) enforces one row per tenant. A newly-created tenant with no row
+yet is seeded by `getOrCreate()` with `COMPANY_DEFAULTS` — with the `name`
+taken from the **tenant name** (see `11-multi-tenancy.md`).
 
-`id uuid PK`, `name` (varchar 255, NOT NULL), `short_name`, `email`, `phone`,
+`id uuid PK`, `tenant_id` (NOT NULL FK->tenants, unique index), `name`
+(varchar 255, NOT NULL), `short_name`, `email`, `phone`,
 `address` (varchar 500), `website`, `tagline` (varchar 500), `logo` (**text,
 nullable** — stores either an image path or a data URL for uploads),
 `currency` (default `'USD'`), `gstin`, `pan`, `tan`, `cin`,
@@ -30,13 +43,14 @@ nullable** — stores either an image path or a data URL for uploads),
 > `name:` explicitly (e.g. `default_tax_rate`, `short_name`,
 > `authorized_signatory`, `created_at`, `updated_at`).
 
-## Endpoints (admin roles only)
+## Endpoints (authenticated — any tenant member; scoped to the caller's tenant)
 
-| Method | Path      | Permission     | Description                        |
-| ------ | --------- | -------------- | ---------------------------------- |
-| GET    | `/company` | `company:read` | current company settings (singleton) |
-| PATCH  | `/company` | `company:update` | partial update of any field        |
-| POST   | `/company/enhance-tagline` | `company:update` | AI-rewrite the tagline via Gemini  |
+| Method | Path      | Description                              |
+| ------ | --------- | ---------------------------------------- |
+| GET    | `/company` | current company settings (singleton)     |
+| PATCH  | `/company` | partial update of any field              |
+| POST   | `/company/onboarding` | first-time company setup: renames the tenant to the company name + upserts the settings row |
+| POST   | `/company/enhance-tagline` | AI-rewrite the tagline via Gemini |
 
 ### GET `/company`
 
@@ -47,12 +61,12 @@ as a **string** (numeric column) — the frontend data layer coerces it with
 ```json
 {
   "id": "<uuid>",
-  "name": "Island Beach Vacation",
+  "name": "Aasvana",
   "shortName": "Xm",
-  "email": "admin@islandbeachvacation.com",
-  "phone": "+1 (808) 555-1234",
-  "address": "123 Island Beach Rd, Maui, HI 96753",
-  "website": "https://www.islandbeachvacation.com",
+  "email": "admin@aasvana.com",
+  "phone": "+91 90000 00000",
+  "address": "Aasvana HQ",
+  "website": "https://www.aasvana.com",
   "tagline": "...",
   "logo": "/images/logo-light.svg",
   "currency": "USD",
@@ -68,6 +82,20 @@ as a **string** (numeric column) — the frontend data layer coerces it with
   "updatedAt": "..."
 }
 ```
+
+### POST `/company/onboarding`
+
+Body: `OnboardCompanyDto` — the `UpdateCompanySettingsDto` fields with
+`name` (**required**, 1–255 chars). Other fields are optional; empty/undefined
+values are ignored.
+
+- `name` is **required** and is used to rename the caller's tenant
+  (`TenantsService.rename`, which also regenerates the tenant slug), so the
+  tenant's identity matches the company name the user chose on signup.
+- The remaining fields are merged into the tenant's `company_settings` row
+  (created if needed, seeded from the tenant name via `getOrCreate`).
+- Used by the frontend's `/onboarding/company` step (`POST /company/onboarding`
+  via `useApiRequest`). Returns the updated settings row.
 
 ### PATCH `/company` body
 
@@ -87,9 +115,17 @@ images are resized and re-encoded to stay under the cap.
 
 ## Behavioral notes
 
-- First GET creates + persists the default row if the table is empty (e.g. after
-  a `down`+`up` of `1760000000013` without the seed row).
-- The endpoint is `PATCH /company` (no id) because the row is a singleton.
+- First GET creates + persists the default row **for the caller's tenant** if
+  no settings row exists for that tenant (the `tenant_id` is taken from the
+  async-local-storage tenant context, set by the global `TenantInterceptor`).
+- The endpoint is `PATCH /company` (no id) because the row is per-tenant
+  singleton.
+- Every `getOrCreate()` and `update()` filters by `tenantId` — one tenant can
+  never read or modify another tenant's company settings.
+- Access is **JWT + tenant scoping only** (no `@Permissions()`). A regular
+  `user`-role account can manage its own tenant's company settings — that is the
+  whole point of the onboarding company step. `company:read` / `company:update`
+  permissions remain seeded but unused by routes.
 - `logo` is a text column (`text`, nullable). When the frontend passes a
   `data:image/...` URL, the service hands it to `ImageKitService` first:
   - `IMAGEKIT_PRIVATE_KEY` set → uploaded to ImageKit (multipart `FormData`,
@@ -112,7 +148,7 @@ unreachable / rejected. Configured in `AppModule`; consumed by `CompanyService.u
 ## POST `/company/enhance-tagline`
 
 Body: `{ "tagline"?: string }` (optional, max 500 chars; omitted → generates from
-the company name). Permission `company:update`.
+the company name). Authenticated (no `@Permissions` required).
 
 Calls the **Gemini** REST API (Google free tier, `gemini-2.0-flash` by default):
 
@@ -134,18 +170,22 @@ The frontend surfaces these messages directly (`api.utils` interceptor forwards
 
 - `src/company/entities/company-setting.entity.ts`
 - `src/company/dto/update-company-settings.dto.ts`
+- `src/company/dto/onboard-company.dto.ts`
 - `src/company/dto/enhance-tagline.dto.ts`
 - `src/company/company.service.ts`, `src/company/company.controller.ts`, `src/company/company.module.ts`
 - `src/imagekit/imagekit.service.ts`, `src/imagekit/imagekit.module.ts`
 - `src/database/migrations/1760000000013-CreateCompanySettingsTable.ts`
 - `src/database/migrations/1760000000014-SeedCompanySettingsPermissions.ts`
+- `src/database/migrations/1760000000017-AddTenantScoping.ts` (adds `tenant_id` + `UNIQUE (tenant_id)`)
+- Multi-tenancy model: `11-multi-tenancy.md`
 
 ## Agent checklist
 
-- [ ] Admin roles can GET `/company`; the first read seeds/returns the singleton
-- [ ] Non-admin → `403`; missing role/permission enforced
+- [ ] Any authenticated tenant member can GET /company; the first read seeds/returns the singleton
+- [ ] A cross-tenant user gets their own row (never another tenant's); no role/permission gates
 - [ ] PATCH applies partial updates and returns the merged row
-- [ ] `PATCH` with unknown field → `400`; invalid email → `400`
+- [ ] `POST /company/onboarding` renames the tenant to `name` and upserts the settings row
+- [ ] `PATCH` with unknown field → `400`; invalid email → `400`; onboarding without `name` → `400`
 - [ ] `logo: null` clears the logo; data-url uploads round-trip
 - [ ] Logo data URL → uploaded to ImageKit when a private key is set; stored raw otherwise; PATCH never fails on ImageKit errors
 - [ ] `defaultTaxRate` persists as numeric and validates 0–100

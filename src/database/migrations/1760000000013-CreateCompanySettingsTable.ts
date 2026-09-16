@@ -33,13 +33,13 @@ export class CreateCompanySettingsTable1760000000013 implements MigrationInterfa
     await queryRunner.query(`
       INSERT INTO "company_settings" ("name", "short_name", "email", "phone", "address", "website", "tagline", "logo", "business_type", "authorized_signatory")
       VALUES (
-        'Island Beach Vacation',
+        'Aasvana',
         'Xm',
-        'admin@islandbeachvacation.com',
-        '+1 (808) 555-1234',
-        '123 Island Beach Rd, Maui, HI 96753',
-        'https://www.islandbeachvacation.com',
-        'Island Beach Vacation is a powerful and flexible web application template designed for building modern, responsive, and user-friendly applications.',
+        'admin@aasvana.com',
+        '+91 90000 00000',
+        'Aasvana HQ',
+        'https://www.aasvana.com',
+        'Aasvana is a powerful and flexible web application template designed for building modern, responsive, and user-friendly applications.',
         '/images/logo-light.svg',
         'Private Limited',
         'Aquib Shahbaz'

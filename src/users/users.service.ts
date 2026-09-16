@@ -13,6 +13,12 @@ import { ProfileType } from './entities/profile-type.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
+import { UpdateUserSubscriptionDto } from './dto/update-user-subscription.dto';
+import { TenantsService } from '../tenants/tenants.service';
+import type {
+  SubscriptionStatus,
+  TenantSubscription,
+} from '../tenants/tenants.constants';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -21,6 +27,10 @@ export interface PaginatedUsers {
   total: number;
   page: number;
   limit: number;
+}
+
+export function isPlatformAdmin(roles: string[]): boolean {
+  return roles.includes('systemadmin') || roles.includes('superadmin');
 }
 
 @Injectable()
@@ -34,23 +44,42 @@ export class UsersService {
     private readonly profileTypeRepository: Repository<ProfileType>,
     @InjectRepository(UserDetail)
     private readonly userDetailRepository: Repository<UserDetail>,
+    private readonly tenantsService: TenantsService,
   ) {}
 
-  findAll(query: FindUsersQueryDto): Promise<PaginatedUsers> {
-    const { page, limit, search } = query;
-
-    return this.userRepository
+  private buildUserQuery(tenantId: string, platformAdmin: boolean) {
+    const qb = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.roles', 'roles')
       .leftJoinAndSelect('roles.permissions', 'permissions')
       .leftJoinAndSelect('roles.modules', 'modules')
-      .leftJoinAndSelect('user.detail', 'detail')
-      .where(
-        search
-          ? '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)'
-          : '1=1',
-        search ? { search: `%${search}%` } : undefined,
-      )
+      .leftJoinAndSelect('user.detail', 'detail');
+    if (platformAdmin) {
+      qb.leftJoinAndSelect('user.tenant', 'tenant');
+    } else {
+      qb.where('user.tenantId = :tenantId', { tenantId });
+    }
+    return qb;
+  }
+
+  findAll(
+    query: FindUsersQueryDto,
+    tenantId: string,
+    roles: string[] = [],
+  ): Promise<PaginatedUsers> {
+    const { page, limit, search } = query;
+    const platformAdmin = isPlatformAdmin(roles);
+
+    const qb = this.buildUserQuery(tenantId, platformAdmin);
+
+    if (search) {
+      qb.andWhere(
+        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    return qb
       .orderBy('user.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
@@ -66,6 +95,21 @@ export class UsersService {
       .leftJoinAndSelect('roles.modules', 'modules')
       .leftJoinAndSelect('user.detail', 'detail')
       .where('user.id = :id', { id })
+      .getOne();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  async findByIdScoped(
+    id: string,
+    tenantId: string,
+    roles: string[] = [],
+  ): Promise<User> {
+    const platformAdmin = isPlatformAdmin(roles);
+    const user = await this.buildUserQuery(tenantId, platformAdmin)
+      .andWhere('user.id = :id', { id })
       .getOne();
     if (!user) {
       throw new NotFoundException('User not found');
@@ -97,7 +141,7 @@ export class UsersService {
     return user;
   }
 
-  async create(dto: CreateUserDto): Promise<User> {
+  async create(dto: CreateUserDto, tenantId: string): Promise<User> {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
     const roles =
@@ -114,6 +158,7 @@ export class UsersService {
       lastName: dto.lastName,
       email: dto.email.toLowerCase(),
       passwordHash,
+      tenantId,
       isActive: dto.isActive ?? true,
       isApproved: dto.isApproved ?? isSysOrSuperAdmin ?? false,
       roles,
@@ -136,8 +181,13 @@ export class UsersService {
     return savedUser;
   }
 
-  async update(id: string, dto: UpdateUserDto): Promise<User> {
-    const user = await this.findById(id);
+  async update(
+    id: string,
+    dto: UpdateUserDto,
+    tenantId: string,
+    roles: string[] = [],
+  ): Promise<User> {
+    const user = await this.findByIdScoped(id, tenantId, roles);
 
     if (dto.email) {
       user.email = dto.email.toLowerCase();
@@ -218,8 +268,12 @@ export class UsersService {
     return savedUser;
   }
 
-  async remove(id: string): Promise<void> {
-    const user = await this.findById(id);
+  async remove(
+    id: string,
+    tenantId: string,
+    roles: string[] = [],
+  ): Promise<void> {
+    const user = await this.findByIdScoped(id, tenantId, roles);
     const isProtected = user.roles.some(
       (role) => role.name === 'superadmin' || role.name === 'systemadmin',
     );
@@ -228,7 +282,10 @@ export class UsersService {
         'Superadmin and systemadmin users cannot be deleted',
       );
     }
-    const result = await this.userRepository.delete(id);
+    const platformAdmin = isPlatformAdmin(roles);
+    const result = platformAdmin
+      ? await this.userRepository.delete(id)
+      : await this.userRepository.delete({ id, tenantId });
     if (!result.affected) {
       throw new NotFoundException('User not found');
     }
@@ -346,7 +403,12 @@ export class UsersService {
     return this.profileTypeRepository.save(profileType);
   }
 
-  async findUserDetailByUserId(userId: string): Promise<UserDetail> {
+  async findUserDetailByUserId(
+    userId: string,
+    tenantId: string,
+    roles: string[] = [],
+  ): Promise<UserDetail> {
+    await this.findByIdScoped(userId, tenantId, roles);
     const detail = await this.userDetailRepository.findOne({
       where: { userId },
     });
@@ -359,7 +421,10 @@ export class UsersService {
   async updateUserDetail(
     userId: string,
     patch: Partial<UserDetail>,
+    tenantId: string,
+    roles: string[] = [],
   ): Promise<UserDetail> {
+    await this.findByIdScoped(userId, tenantId, roles);
     const detail = await this.userDetailRepository.findOne({
       where: { userId },
     });
@@ -380,11 +445,50 @@ export class UsersService {
   async updateUserModules(
     userId: string,
     moduleOverrides: { add: string[]; remove: string[] },
+    tenantId: string,
+    roles: string[] = [],
   ): Promise<UserDetail> {
-    return this.updateUserDetail(userId, {
-      details: {
-        moduleOverrides,
+    return this.updateUserDetail(
+      userId,
+      {
+        details: {
+          moduleOverrides,
+        },
       },
+      tenantId,
+      roles,
+    );
+  }
+
+  async setUserSubscription(
+    id: string,
+    tenantId: string,
+    roles: string[],
+    dto: UpdateUserSubscriptionDto,
+  ): Promise<TenantSubscription> {
+    const user = await this.findByIdScoped(id, tenantId, roles);
+    const status = dto.status as SubscriptionStatus;
+
+    let plan: string | null = null;
+    if (dto.plan !== undefined) {
+      plan = dto.plan;
+    } else if (status === 'active') {
+      plan = 'monthly';
+    }
+
+    let paidUntil: Date | null = null;
+    if (dto.paidUntil) {
+      paidUntil = new Date(dto.paidUntil);
+    } else if (status === 'active') {
+      paidUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    } else if (status === 'trial') {
+      paidUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    }
+
+    return this.tenantsService.setSubscription(user.tenantId, {
+      status,
+      plan,
+      paidUntil,
     });
   }
 

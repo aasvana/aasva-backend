@@ -1,5 +1,6 @@
 import {
   IsEmail,
+  IsOptional,
   IsString,
   Length,
   Matches,
@@ -19,6 +20,11 @@ export class RegisterDto {
   @IsEmail()
   @MaxLength(255)
   email: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  tenantName?: string;
 
   @IsString()
   @MinLength(8)

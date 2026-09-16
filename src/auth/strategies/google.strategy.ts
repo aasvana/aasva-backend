@@ -13,6 +13,13 @@ export interface GoogleOAuthUser {
   emailVerified: boolean;
 }
 
+interface GoogleProfile {
+  id: string;
+  emails?: { value?: string; verified?: boolean }[];
+  name?: { givenName?: string; familyName?: string };
+  photos?: { value?: string }[];
+}
+
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(config: AppConfigService) {
@@ -31,7 +38,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   validate(
     accessToken: string,
     refreshToken: string,
-    profile: any,
+    profile: GoogleProfile,
     done: VerifyCallback,
   ): void {
     const { id, emails, name, photos } = profile;
