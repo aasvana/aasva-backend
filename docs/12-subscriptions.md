@@ -73,6 +73,30 @@ reachable for a revoked tenant:
 exemptions must keep the app self-explanatory: an unpaid user can still confirm
 their status (`/auth/me`), sign out, and finish the free company step.
 
+## Subscription plans (`subscription_plans`, added by `1760000000019-AddSubscriptionPlansAndSubModules`)
+
+Directly support a plan picker in the Users section. The migration creates the
+`subscription_plans` table and seeds **five plans**:
+
+| key | name | duration_days | price |
+| --- | --- | --- | --- |
+| `monthly` | Monthly | 30 | 49.00 |
+| `biannually` | Bi-Annually | 182 | 249.00 |
+| `annually` | Annually | 365 | 449.00 |
+| `trial` | Trial | 90 | NULL |
+| `lifetime` | Lifetime | NULL | 9999.00 |
+
+`Employee`-facing API:
+
+- `GET /plans` ($ `PlansController`, `Roles(ADMIN)` + `Permissions('users:read')`)
+  returns the plans ordered by `duration_days` ascending (NULL → last), so the
+  lifetime plan sorts after the finite ones.
+- `PlansService.findByKey(key)` resolves a single plan by key; used by
+  `UsersService.setUserSubscription` to derive duration/price.
+
+`duration_days` is stored in the plan **row**, not in the tenant row — tenants
+store only `subscription_plan` = plan **key** (`tenants.subscription_plan`).
+
 ## Marking a tenant paid / unpaid
 
 `TenantsService.getSubscription(tenantId)` and
@@ -88,11 +112,18 @@ admins), then updates **the user's tenant**:
 { "status": "active" }
 { "status": "inactive" }
 { "status": "trial", "plan": "trial" }
+{ "status": "active", "plan": "annually" }
 ```
 
-Defaults applied when fields are omitted: `active` → plan `monthly`,
-`paid_until = now() + 30d`; `trial` → `paid_until = now() + 90d`; opaque
-`paid_until` (ISO-8601) can be passed explicitly.
+Duration resolution (`setUserSubscription`):
+
+1. If `dto.plan` is provided → the plan row's `durationDays` (NULL for
+   `lifetime`). Unknown plan keys fall through with a **30d** duration for
+   `active` and **90d** for `trial`.
+2. If `dto.plan` is omitted → `active` defaults to plan `monthly` (30d);
+   `trial` keeps a null plan and falls back to 90d.
+3. `paidUntil` = `now + durationDays` for `active` (lifetime → stays NULL =
+   never expires) and `trial`; an explicit ISO-8601 `dto.paidUntil` always wins.
 
 Because the platform-admin escape is role-based (not tenant-based), a platform
 admin whose own tenant is inactive is still exempt at the gate, so they can
@@ -126,21 +157,53 @@ The cross-tenant `GET /users` list already joins `user.tenant`, so each item's
   gate (platform roles bypass; missing subscription → allowed for
   legacy sessions) and drives the dashboard layout, which renders
   `<SubscriptionRequiredScreen />` instead of the app when inactive.
-- The settings **Users** section is system-admin-only and shows the tenant
-  subscription per user (status / plan / paid until) with **Mark Paid** /
-  **Mark Unpaid** buttons alongside approval, profile, role, and module
-  toggles. The sidebar `Users` item is restricted to `systemadmin`.
+- The settings **Users** section is system-admin-only and uses a
+  **drill-in list → detail layout** (see `docs/guides/settings.md`): a
+  paginated, searchable user list (20/page via `GET /users?page=&limit=&search=`)
+  that swaps to that user's account-detail view when clicked, with a
+  **Back to users** button to return; the detail shows the
+  tenant subscription — status badge, **Mark Paid / Mark Unpaid** toggle, a
+  **plan picker** fed by `GET /plans`, and paid-until — alongside approval,
+  profile, role, and module toggles plus per-module **sub-module chips**
+  (`GET /modules.subModules` → `PATCH /users/:id/sub-modules`). The sidebar
+  `Users` item is restricted to `systemadmin`.
+
+## Sub-modules (`modules.sub_modules`, added by `1760000000019`)
+
+Per-module sub-feature lists that the Users section presents as selectable
+chips, stored per user in `user_details.details.subModules: Record<module, string[]>`:
+
+- `roles/entities/module.entity.ts` gained a `sub_modules` jsonb column
+  (default `[]`); `1760000000019` seeds a catalogue per module (Dashboard,
+  Accounting, Auditing, Travel, Delivery, Healthcare, Store, Analytics,
+  Customers, User Requests, Help Center, Teams Meet — mirroring the first-level
+  sidebar nav item titles).
+- `GET /modules` (`ModulesController`) returns `subModules` on each module.
+- `PATCH /users/:id/sub-modules` (`users:update`, body
+  `{ module: string, subModules?: string[] }`, DTO
+  `UpdateUserSubModulesDto`) writes the full list for one module, **merging**
+  with any previously stored sub-modules for other modules:
+  `details.subModules = { ...existing, [module]: subModules }`.
+- `updateUserDetail` deep-merges the `details` object instead of replacing it,
+  so writing `moduleOverrides`/`subModules`/`profileTypeId` never clobbers the
+  others (`details` in `UserDetailEntity` is nested JSONB).
 
 ## Files
 
 - `src/database/migrations/1760000000018-AddTenantSubscription.ts`
-- `src/tenants/entities/tenant.entity.ts`, `src/tenants/tenants.constants.ts`,
-  `src/tenants/tenants.service.ts`
+- `src/database/migrations/1760000000019-AddSubscriptionPlansAndSubModules.ts`
+- `src/tenants/entities/tenant.entity.ts`, `src/tenants/entities/subscription-plan.entity.ts`,
+  `src/tenants/tenants.constants.ts`, `src/tenants/tenants.service.ts`,
+  `src/tenants/plans.service.ts`, `src/tenants/plans.controller.ts`,
+  `src/tenants/tenants.module.ts`
 - `src/common/tenant/tenant.interceptor.ts`, `src/common/tenant/tenant.module.ts`
 - `src/common/decorators/skip-subscription-gate.decorator.ts`
 - `src/auth/auth.service.ts` (`AuthResult` + `me()`), `src/auth/auth.controller.ts`
-- `src/users/users.service.ts` (`setUserSubscription`), `src/users/users.controller.ts`,
-  `src/users/users.module.ts`, `src/users/dto/update-user-subscription.dto.ts`
+- `src/users/users.service.ts` (`setUserSubscription`, `updateUserSubModules`,
+  `updateUserDetail` deep-merge), `src/users/users.controller.ts`,
+  `src/users/users.module.ts`, `src/users/dto/update-user-subscription.dto.ts`,
+  `src/users/dto/update-user-sub-modules.dto.ts`
+- `src/roles/entities/module.entity.ts` (`sub_modules` column)
 
 ## Agent checklist
 
@@ -148,7 +211,10 @@ The cross-tenant `GET /users` list already joins `user.tenant`, so each item's
 - [ ] Inactive subscription → `402` on protected endpoints; active/trial → allowed
 - [ ] Default tenant + `systemadmin`/`superadmin` bypass the gate
 - [ ] `@SkipSubscriptionGate()` routes stay reachable when revoked
-- [ ] `PATCH /users/:id/subscription` marks the user's tenant paid/unpaid with sane defaults
+- [ ] `GET /plans` returns the five seeded plans ordered by `duration_days`
+- [ ] `PATCH /users/:id/subscription` marks the user's tenant paid/unpaid; plan-key durations apply (annually +365d, monthly +30d, trial +90d, lifetime → null `paid_until`)
+- [ ] `PATCH /users/:id/sub-modules` merges sub-modules per module; `updateUserDetail` deep-merges `details`
+- [ ] `GET /modules` items include `subModules`
 - [ ] Login/refresh/`me` all return `subscription`
 - [ ] `GET /users` items include the tenant's subscription fields
-- [ ] Local + Neon both applied migration `1760000000018`
+- [ ] Local + Neon both applied migrations `1760000000018` and `1760000000019`

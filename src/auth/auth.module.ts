@@ -12,10 +12,17 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { CompanySetting } from '../company/entities/company-setting.entity';
+import { ProfileType } from '../users/entities/profile-type.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PasswordResetToken, OAuthIdentity]),
+    TypeOrmModule.forFeature([
+      PasswordResetToken,
+      OAuthIdentity,
+      CompanySetting,
+      ProfileType,
+    ]),
     UsersModule,
     TenantsModule,
     PassportModule,

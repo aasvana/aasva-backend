@@ -20,6 +20,9 @@ export class Module {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  @Column({ type: 'jsonb', name: 'sub_modules', default: [] })
+  subModules: string[];
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 

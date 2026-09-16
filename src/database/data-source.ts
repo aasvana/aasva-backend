@@ -12,6 +12,7 @@ import { OAuthIdentity } from '../auth/entities/oauth-identity.entity';
 import { ConfirmationVoucher } from '../travel/entities/confirmation-voucher.entity';
 import { CompanySetting } from '../company/entities/company-setting.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import { SubscriptionPlan } from '../tenants/entities/subscription-plan.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -29,6 +30,7 @@ export const AppDataSource = new DataSource({
       }),
   entities: [
     Tenant,
+    SubscriptionPlan,
     User,
     ProfileType,
     UserDetail,

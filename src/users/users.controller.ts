@@ -16,6 +16,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { UpdateUserSubscriptionDto } from './dto/update-user-subscription.dto';
+import { UpdateUserSubModulesDto } from './dto/update-user-sub-modules.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Role } from '../roles/enums/role.enum';
@@ -117,6 +118,22 @@ export class UsersController {
     return this.usersService.updateUserModules(
       id,
       body,
+      this.tenantContext.require(),
+      currentUser.roles,
+    );
+  }
+
+  @Patch(':id/sub-modules')
+  @Permissions('users:update')
+  async updateSubModules(
+    @CurrentUser() currentUser: JwtUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserSubModulesDto,
+  ) {
+    return this.usersService.updateUserSubModules(
+      id,
+      dto.module,
+      dto.subModules ?? [],
       this.tenantContext.require(),
       currentUser.roles,
     );

@@ -12,8 +12,10 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'node:crypto';
 import { IsNull, Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
+import { CompanySetting } from '../company/entities/company-setting.entity';
 import { User } from '../users/entities/user.entity';
 import { UserDetail } from '../users/entities/user-detail.entity';
+import { ProfileType } from '../users/entities/profile-type.entity';
 import { TenantsService } from '../tenants/tenants.service';
 import type { TenantSubscription } from '../tenants/tenants.constants';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
@@ -55,6 +57,10 @@ export type SafeUser = Omit<
   | 'tenant'
 > & {
   detail: UserDetail | null;
+  modules: string[];
+  companyComplete: boolean;
+  profileType: Pick<ProfileType, 'id' | 'name' | 'key'> | null;
+  assignedRole: string | null;
 };
 
 @Injectable()
@@ -64,6 +70,10 @@ export class AuthService {
     private readonly passwordResetTokenRepository: Repository<PasswordResetToken>,
     @InjectRepository(OAuthIdentity)
     private readonly oauthIdentityRepository: Repository<OAuthIdentity>,
+    @InjectRepository(CompanySetting)
+    private readonly companyRepository: Repository<CompanySetting>,
+    @InjectRepository(ProfileType)
+    private readonly profileTypeRepository: Repository<ProfileType>,
     private readonly usersService: UsersService,
     private readonly tenantsService: TenantsService,
     private readonly jwtService: JwtService,
@@ -199,8 +209,9 @@ export class AuthService {
     userId: string,
   ): Promise<{ user: SafeUser; subscription: TenantSubscription }> {
     const user = await this.usersService.findById(userId);
+    const profileType = await this.getProfileType(user);
     return {
-      user: this.toSafeUser(user),
+      user: await this.toSafeUser(user, profileType),
       subscription: await this.subscriptionFor(user),
     };
   }
@@ -264,7 +275,8 @@ export class AuthService {
   }
 
   private async issueTokens(user: User): Promise<AuthResult> {
-    const accessToken = this.signAccessToken(user);
+    const profileType = await this.getProfileType(user);
+    const accessToken = this.signAccessToken(user, profileType);
     const refreshToken = randomBytes(48).toString('hex');
     const refreshExpiresAt = new Date(
       Date.now() + parseDuration(this.config.jwtRefreshExpiresIn),
@@ -279,7 +291,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: this.toSafeUser(user),
+      user: await this.toSafeUser(user, profileType),
       subscription: await this.subscriptionFor(user),
     };
   }
@@ -294,7 +306,7 @@ export class AuthService {
     );
   }
 
-  private signAccessToken(user: User): string {
+  private signAccessToken(user: User, profileType: ProfileType | null): string {
     const roles = user.roles.map((role) => role.name);
     const permissions = [
       ...new Set(
@@ -308,15 +320,9 @@ export class AuthService {
       ),
     ];
 
-    const profileType = (
-      user as unknown as {
-        profileType?: { config?: { modules?: string[] } } | null;
-      }
-    ).profileType;
-
-    const profileTypeModules = profileType?.config?.modules
+    const profileTypeModules: string[] = profileType?.config?.modules
       ? Array.isArray(profileType.config.modules)
-        ? [...new Set(profileType.config.modules)]
+        ? ([...new Set(profileType.config.modules)] as string[])
         : []
       : [];
 
@@ -363,7 +369,47 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private toSafeUser(user: User): SafeUser {
+  private effectiveModuleTitles(
+    user: User,
+    profileType: ProfileType | null,
+  ): string[] {
+    const roleModules =
+      user.roles?.flatMap((role) => role.modules?.map((m) => m.name) ?? []) ??
+      [];
+
+    const baseModules =
+      Array.isArray(profileType?.config?.modules) &&
+      profileType.config.modules.length > 0
+        ? (profileType.config.modules as string[])
+        : roleModules;
+
+    const moduleOverrides = user.detail?.details?.moduleOverrides as
+      { add?: string[]; remove?: string[] } | undefined;
+
+    const set = new Set(baseModules);
+    if (moduleOverrides?.add?.length) {
+      moduleOverrides.add.forEach((m) => set.add(m));
+    }
+    if (moduleOverrides?.remove?.length) {
+      moduleOverrides.remove.forEach((m) => set.delete(m));
+    }
+    return [...set];
+  }
+
+  private async toSafeUser(
+    user: User,
+    profileType: ProfileType | null,
+  ): Promise<SafeUser> {
+    const companyComplete = await this.companyRepository.exists({
+      where: { tenantId: user.tenantId },
+    });
+
+    const effectiveModules = this.effectiveModuleTitles(user, profileType);
+    const assignedRole =
+      profileType?.key ??
+      user.roles?.find((assigned) => assigned.name !== 'user')?.name ??
+      (effectiveModules.includes('Travel') ? 'travel-agent' : null);
+
     return {
       id: user.id,
       firstName: user.firstName,
@@ -374,9 +420,21 @@ export class AuthService {
       isApproved: user.isApproved ?? false,
       isEmailVerified: user.isEmailVerified,
       detail: user.detail,
+      profileType: profileType
+        ? { id: profileType.id, name: profileType.name, key: profileType.key }
+        : null,
+      assignedRole,
+      modules: effectiveModules,
+      companyComplete,
       roles: user.roles,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  private async getProfileType(user: User): Promise<ProfileType | null> {
+    const profileTypeId = user.detail?.details?.profileTypeId;
+    if (typeof profileTypeId !== 'string') return null;
+    return this.profileTypeRepository.findOne({ where: { id: profileTypeId } });
   }
 }

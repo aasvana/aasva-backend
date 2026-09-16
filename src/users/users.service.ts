@@ -15,6 +15,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { UpdateUserSubscriptionDto } from './dto/update-user-subscription.dto';
 import { TenantsService } from '../tenants/tenants.service';
+import { PlansService } from '../tenants/plans.service';
 import type {
   SubscriptionStatus,
   TenantSubscription,
@@ -45,6 +46,7 @@ export class UsersService {
     @InjectRepository(UserDetail)
     private readonly userDetailRepository: Repository<UserDetail>,
     private readonly tenantsService: TenantsService,
+    private readonly plansService: PlansService,
   ) {}
 
   private buildUserQuery(tenantId: string, platformAdmin: boolean) {
@@ -438,7 +440,14 @@ export class UsersService {
       );
     }
 
-    Object.assign(detail, patch);
+    const nextDetails = patch.details
+      ? {
+          ...(detail.details ?? {}),
+          ...patch.details,
+        }
+      : detail.details;
+
+    Object.assign(detail, patch, { details: nextDetails });
     return this.userDetailRepository.save(detail);
   }
 
@@ -476,13 +485,21 @@ export class UsersService {
       plan = 'monthly';
     }
 
+    const planRow = plan ? await this.plansService.findByKey(plan) : null;
+    const durationDays = planRow
+      ? planRow.durationDays
+      : status === 'trial'
+        ? 90
+        : 30;
+
     let paidUntil: Date | null = null;
     if (dto.paidUntil) {
       paidUntil = new Date(dto.paidUntil);
-    } else if (status === 'active') {
-      paidUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    } else if (status === 'active' && durationDays) {
+      paidUntil = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
     } else if (status === 'trial') {
-      paidUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      const trialDays = durationDays ?? 90;
+      paidUntil = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
     }
 
     return this.tenantsService.setSubscription(user.tenantId, {
@@ -490,6 +507,39 @@ export class UsersService {
       plan,
       paidUntil,
     });
+  }
+
+  async updateUserSubModules(
+    userId: string,
+    moduleName: string,
+    subModules: string[],
+    tenantId: string,
+    roles: string[] = [],
+  ): Promise<UserDetail> {
+    await this.findByIdScoped(userId, tenantId, roles);
+    const detail = await this.userDetailRepository.findOne({
+      where: { userId },
+    });
+
+    const currentDetails = detail?.details ? { ...detail.details } : {};
+    const currentSubModules =
+      (currentDetails.subModules as Record<string, string[]>) ?? {};
+    currentDetails.subModules = {
+      ...currentSubModules,
+      [moduleName]: subModules,
+    };
+
+    if (detail) {
+      detail.details = currentDetails;
+      return this.userDetailRepository.save(detail);
+    }
+
+    return this.userDetailRepository.save(
+      this.userDetailRepository.create({
+        userId,
+        details: currentDetails,
+      }),
+    );
   }
 
   async deleteUserDetail(userId: string): Promise<void> {

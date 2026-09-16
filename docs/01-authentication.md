@@ -5,7 +5,10 @@ Module: `src/auth/` + `src/users/`
 ## Concepts
 
 - **Access token**: short-lived JWT (default `15m`). Claims:
-  `sub` (user id), `email`, `tenantId`, `roles: string[]`, `permissions: string[]`.
+  `sub` (user id), `email`, `tenantId`, `roles: string[]`, `permissions: string[]`,
+  `modules: string[]` (effective module **page keys**, computed from the user's
+  role modules / `profile_type.config.modules` + `user_details` overrides — see
+  `04-users-module.md` and `docs/guides/roles-modules.md`).
   Sent as `Authorization: Bearer <token>`. `tenantId` is used by the global
   tenant interceptor to scope every request to the user's tenant (see
   [`11-multi-tenancy.md`](11-multi-tenancy.md)).
@@ -46,6 +49,25 @@ Response `201`:
   "user": { "id": "...", "email": "jane@example.com", "tenantId": "<uuid>", "roles": [{ "name": "user", ... }] }
 }
 ```
+
+All auth endpoints (`register`, `login`, `refresh`, `me`) return `SafeUser`,
+which additionally includes `detail`, **`modules: string[]`**, and
+**`companyComplete: boolean`**, the assigned **`profileType`** when present, and
+canonical **`assignedRole`** when available — the effective
+module **titles** (profile-type config / role modules adjusted by
+`moduleOverrides`). The frontend uses `user.modules` to keep the sidebar modules
+in sync with system-admin changes, so a granted/revoked module access reflects
+on the user's next login or silent refresh.
+`companyComplete` is computed from the existence of a `company_settings` row for
+the user's tenant. It is false for a new tenant and true after
+`POST /company/onboarding`; authentication uses a direct existence check rather
+than the company settings `getOrCreate` method.
+When a system administrator assigns a profile type, authentication resolves the
+profile type referenced by `user_details.details.profileTypeId` and includes its
+`id`, `name`, and `key` in `user.profileType`.
+`assignedRole` prefers the profile type key and otherwise uses the first non-default
+RBAC role, allowing the frontend to complete onboarding without relying on local
+storage state.
 
 Errors: `409` email already registered, `400` validation.
 

@@ -100,6 +100,12 @@ voucher numbers are only unique within a tenant.
     `subscription_plan`, and `subscription_paid_until` to `tenants`, backfills
     existing tenants as `trial` (paid until `now() + 90d`), and sets the default
     tenant to `active`/`lifetime`. See `12-subscriptions.md`.
+ 12. `1760000000019-AddSubscriptionPlansAndSubModules` — creates
+    `subscription_plans` and seeds five plans (`monthly`/`biannually`/`annually`/
+    `trial`/`lifetime`); adds `modules.sub_modules` jsonb and seeds the per-module
+     sub-module catalogue. See `12-subscriptions.md`.
+ 13. `1760000000020-AddInvoicesSubModule` — adds `Invoices` to the existing
+     Accounting sub-module catalogue for databases that already ran the seed.
 
 TypeORM 1.x derives each migration's timestamp from the **last 13 digits of the
 class name** — keep that suffix when adding migrations
