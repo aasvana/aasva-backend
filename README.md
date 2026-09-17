@@ -40,11 +40,12 @@ The backend contains Vercel serverless function support configured via `api/inde
 | [10-company-settings.md](docs/10-company-settings.md) | company profile / branding / tax / registration settings; ImageKit logo upload; Gemini AI tagline |
 | [11-multi-tenancy.md](docs/11-multi-tenancy.md) | tenants, tenant scoping, JWT tenantId, isolation rules, migration |
 | [12-subscriptions.md](docs/12-subscriptions.md) | tenant subscription gate (402), skip decorator, mark paid/unpaid |
+| [13-destinations-and-hotels.md](docs/13-destinations-and-hotels.md) | destination records, hotel relationships, and Nominatim fallback |
 
 ## Commands
 
 ```bash
-npm run start:dev       # watch mode
+ npm run start:dev       # watch mode
 npm run build           # compile
 npm run lint            # eslint + prettier
 npm test                # unit tests

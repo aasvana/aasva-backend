@@ -13,6 +13,8 @@ import { ConfirmationVoucher } from '../travel/entities/confirmation-voucher.ent
 import { CompanySetting } from '../company/entities/company-setting.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { SubscriptionPlan } from '../tenants/entities/subscription-plan.entity';
+import { Destination } from '../destinations/entities/destination.entity';
+import { Hotel } from '../hotels/entities/hotel.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -41,6 +43,8 @@ export const AppDataSource = new DataSource({
     OAuthIdentity,
     ConfirmationVoucher,
     CompanySetting,
+    Destination,
+    Hotel,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   synchronize: false,

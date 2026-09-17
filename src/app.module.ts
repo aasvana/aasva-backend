@@ -18,6 +18,8 @@ import { AppService } from './app.service';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { DestinationsModule } from './destinations/destinations.module';
+import { HotelsModule } from './hotels/hotels.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     TravelModule,
     CompanyModule,
     ImageKitModule,
+    DestinationsModule,
+    HotelsModule,
   ],
   controllers: [AppController],
   providers: [
