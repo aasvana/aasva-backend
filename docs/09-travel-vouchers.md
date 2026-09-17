@@ -18,6 +18,7 @@ ever returns packages marked public + active (see below).
 `''`), `payment_type` (varchar 64, default `''`),
 `journey_date` (timestamptz, nullable, indexed), `package_id` (uuid, nullable,
 FK->packages ON DELETE SET NULL, indexed), `data` (JSONB),
+`terms_snapshot` (JSONB, NOT NULL, default `'[]'::jsonb`),
 `created_at`, `updated_at`.
 
 **Uniqueness:** `UNIQUE (tenant_id, voucher_no)` — a voucher number can be
@@ -39,6 +40,12 @@ thin projection of `data` for list/search/sort and are written together with it:
 The itinerary inside `data` is a **snapshot copy** of the selected Package's
 days at voucher-save time. Editing a Package later never alters existing
 vouchers, and editing a voucher's itinerary never alters the Package.
+
+The `terms_snapshot` column is a separate **immutable snapshot** of the
+tenant’s ordered active Terms and Conditions at voucher-creation time. Voucher
+updates preserve the original snapshot; editing, deactivating, deleting, or
+reordering tenant terms affects only vouchers created afterward. See
+`14-terms-and-conditions.md`.
 
 ### `packages` (was `itinerary_templates`)
 
@@ -111,6 +118,14 @@ Response:
       "journeyDate": "2026-06-01T00:00:00.000Z",
       "packageId": null,
       "data": { "...full form payload..." },
+      "termsSnapshot": [
+        {
+          "id": "<term uuid>",
+          "title": "Cancellation by the traveller",
+          "content": "...",
+          "sortOrder": 13
+        }
+      ],
       "createdAt": "...",
       "updatedAt": "..."
     }
@@ -153,13 +168,16 @@ Response:
 - `packageId` is `@IsOptional @IsUUID`; when supplied it is stored in the
   `package_id` column. The voucher's `data.itineraries` remains an independent
   snapshot, so the Package can evolve without touching this voucher.
+- Creation also stores the tenant’s ordered active Terms and Conditions in
+  `terms_snapshot`. The snapshot is not supplied by the client.
 
 ### PATCH `/vouchers/:id` body
 
 Any subset of the POST body (e.g. `{ "data": { ... } }`, `{ "voucherNo":
 "CV-2" }`, `{ "packageId": "..." }`, or both). Omitting both is a no-op.
 Changing `voucherNo` updates the top-level column **and** rewrites
-`data.voucherNo`; a duplicate → `409`.
+`data.voucherNo`; a duplicate → `409`. Updates preserve the voucher’s existing
+`terms_snapshot`.
 
 ### GET `/packages`
 
@@ -225,6 +243,9 @@ unless an explicit `slug` is given.
 ## Files
 
 - `src/travel/entities/confirmation-voucher.entity.ts`
+- `src/terms/entities/term.entity.ts`
+- `src/terms/terms.service.ts`, `src/terms/terms.controller.ts`,
+  `src/terms/terms.module.ts`
 - `src/travel/entities/package.entity.ts` (`Package`, `PackageDay`,
   `PackageImage`, `PackageInclusion`, `PackageExclusion`)
 - `src/travel/confirmation-vouchers.service.ts`, `src/travel/confirmation-vouchers.controller.ts`
@@ -235,6 +256,9 @@ unless an explicit `slug` is given.
 - `src/travel/dto/{create-package,update-package}.dto.ts`
 - `src/database/migrations/1760000000011-CreateConfirmationVouchersTable.ts`
 - `src/database/migrations/1760000000012-SeedTravelVouchersPermissions.ts`
+- `src/database/migrations/1760000000031-CreateTermsAndConditions.ts`
+- `src/database/migrations/1760000000032-SeedTermsPermissions.ts`
+- `src/database/migrations/1760000000033-SeedDefaultTermsAndConditions.ts`
 - `src/database/migrations/1760000000015-AddAgentNameToConfirmationVouchers.ts`
 - `src/database/migrations/1760000000017-AddTenantScoping.ts` (adds `tenant_id`, scopes uniqueness to `(tenant_id, voucher_no)`)
 - `src/database/migrations/1760000000027-CreateItineraryTemplates.ts` /
@@ -254,6 +278,9 @@ unless an explicit `slug` is given.
 - [ ] `GET /vouchers/:id` for a nonexistent id → `404`
 - [ ] `data` JSONB and denormalized columns stay in sync on create/update
 - [ ] `agentName` (`@IsOptional`) persists to `data` + `agent_name` and is searchable
+- [ ] Create stores the tenant’s ordered active Terms and Conditions once in
+  `termsSnapshot`
+- [ ] Update preserves the existing `termsSnapshot`
 - [ ] `packageId` (`@IsOptional @IsUUID`) persists to `package_id`
 - [ ] Package create requires `name` + ≥1 `days`; rejects unknown fields (`400`)
 - [ ] Duplicate package names OK; slug unique per tenant (`-2`, `-3`, … on collision)

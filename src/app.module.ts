@@ -21,6 +21,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
 import { DestinationsModule } from './destinations/destinations.module';
 import { HotelsModule } from './hotels/hotels.module';
 import { PackagesModule } from './travel/packages.module';
+import { TermsModule } from './terms/terms.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { PackagesModule } from './travel/packages.module';
     DestinationsModule,
     HotelsModule,
     PackagesModule,
+    TermsModule,
   ],
   controllers: [AppController],
   providers: [

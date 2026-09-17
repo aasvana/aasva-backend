@@ -3,7 +3,7 @@
 Module: `src/tenants/` + `src/common/tenant/`
 
 Every piece of tenant-owned data (users, company settings, confirmation
-vouchers) is scoped by a `tenant_id` FK. All API access runs through a
+vouchers, packages, terms and conditions) is scoped by a `tenant_id` FK. All API access runs through a
 per-request tenant context so a tenant can only ever read/write its own rows.
 
 ## Model
@@ -48,7 +48,9 @@ Backfill statements in the same migration assign **all pre-existing rows** in
 >
 > Run the same steps on every environment that holds that user. Vouchers keyed
 > to that user's `agent_name` must be re-pointed to the new tenant manually if
-> they belong to them.
+> they belong to them. Also seed terms for the new tenant with
+> `TermsService.seedDefaultTerms()` unless its vouchers should intentionally
+> start without tenant terms.
 
 ### Tenant-owned tables
 
@@ -57,6 +59,8 @@ Backfill statements in the same migration assign **all pre-existing rows** in
 | `users` | NOT NULL, FK cascade-delete from tenant | `email` remains **globally** unique (login is email-based) |
 | `company_settings` | NOT NULL, FK cascade-delete | `UNIQUE (tenant_id)` — one row per tenant |
 | `confirmation_vouchers` | NOT NULL, FK cascade-delete | `UNIQUE (tenant_id, voucher_no)` — voucher numbers repeatable across tenants |
+| `packages` | NOT NULL, FK cascade-delete | tenant-unique slugs |
+| `terms_and_conditions` | NOT NULL, FK cascade-delete | tenant-owned ordered terms; vouchers preserve a separate creation-time snapshot |
 
 `roles`, `permissions`, `modules`, `profile_types`, `user_details`,
 `password_reset_tokens`, and `oauth_identities` are **not** tenant-scoped
@@ -68,8 +72,10 @@ indirectly through their `user_id` FK).
 - **Registration** (`POST /auth/register`): a private tenant named
   `dto.tenantName` (optional) or `${firstName} ${lastName} Company` is created
   and the new user is attached to it. The user becomes the first member.
+  Tenant creation also seeds that tenant’s 27 default Terms and Conditions
+  rows (see `14-terms-and-conditions.md`).
 - **Google OAuth**: a new (previously unregistered) OAuth user gets the same
-  treatment — a private tenant from their name.
+  treatment — a private tenant from their name, including default terms.
 - **Company onboarding** (`POST /company/onboarding`): on first signup the
   frontend's `/onboarding/company` step renames that private tenant to the
   company name the user enters (via `TenantsService.rename`, which also
@@ -153,7 +159,7 @@ Tenant-scoped TanStack Query keys: `companyQueryKeys.all(tenantId)` and
 
 - `src/tenants/entities/tenant.entity.ts`
 - `src/tenants/tenants.constants.ts` (`DEFAULT_TENANT_ID`, `DEFAULT_TENANT_NAME`, subscription helpers)
-- `src/tenants/tenants.service.ts` (`create`, `findById`, `rename`, `getSubscription`, `setSubscription`), `src/tenants/tenants.module.ts`
+- `src/tenants/tenants.service.ts` (`create`, `findById`, `rename`, `getSubscription`, `setSubscription`, default-terms seeding), `src/tenants/tenants.module.ts`
 - `src/common/tenant/tenant-context.service.ts`, `tenant.interceptor.ts`, `tenant.module.ts`
 - `src/common/decorators/skip-subscription-gate.decorator.ts`
 - `src/database/migrations/1760000000017-AddTenantScoping.ts`, `1760000000018-AddTenantSubscription.ts`

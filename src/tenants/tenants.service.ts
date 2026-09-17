@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
+import { TermsService } from '../terms/terms.service';
 import { DEFAULT_TENANT_ID, TRIAL_DURATION_DAYS } from './tenants.constants';
 import type {
   SubscriptionStatus,
@@ -14,6 +15,7 @@ export class TenantsService {
   constructor(
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    private readonly termsService: TermsService,
   ) {}
 
   async create(name: string): Promise<Tenant> {
@@ -27,7 +29,9 @@ export class TenantsService {
         Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000,
       ),
     });
-    return this.tenantRepository.save(tenant);
+    const saved = await this.tenantRepository.save(tenant);
+    await this.termsService.seedDefaultTerms(saved.id);
+    return saved;
   }
 
   async findById(id: string): Promise<Tenant | null> {

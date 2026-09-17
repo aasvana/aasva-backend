@@ -11,6 +11,7 @@ import { CreateConfirmationVoucherDto } from './dto/create-confirmation-voucher.
 import { UpdateConfirmationVoucherDto } from './dto/update-confirmation-voucher.dto';
 import { FindVouchersQueryDto } from './dto/find-vouchers-query.dto';
 import { VoucherDataDto } from './dto/voucher-data.dto';
+import { TermsService } from '../terms/terms.service';
 import { TenantContext } from '../common/tenant/tenant-context.service';
 
 export interface PaginatedVouchers {
@@ -26,6 +27,7 @@ export class ConfirmationVouchersService {
     @InjectRepository(ConfirmationVoucher)
     private readonly voucherRepository: Repository<ConfirmationVoucher>,
     private readonly tenantContext: TenantContext,
+    private readonly termsService: TermsService,
   ) {}
 
   findAll(query: FindVouchersQueryDto): Promise<PaginatedVouchers> {
@@ -111,6 +113,7 @@ export class ConfirmationVouchersService {
         dto.packageId,
       ),
       tenantId,
+      termsSnapshot: await this.termsService.listActiveSnapshots(tenantId),
     });
     return this.voucherRepository.save(entity);
   }

@@ -10,6 +10,7 @@ import { Module } from '../roles/entities/module.entity';
 import { PasswordResetToken } from '../auth/entities/password-reset-token.entity';
 import { OAuthIdentity } from '../auth/entities/oauth-identity.entity';
 import { ConfirmationVoucher } from '../travel/entities/confirmation-voucher.entity';
+import { Term } from '../terms/entities/term.entity';
 import { CompanySetting } from '../company/entities/company-setting.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { SubscriptionPlan } from '../tenants/entities/subscription-plan.entity';
@@ -49,6 +50,7 @@ export const AppDataSource = new DataSource({
     PasswordResetToken,
     OAuthIdentity,
     ConfirmationVoucher,
+    Term,
     CompanySetting,
     Destination,
     Hotel,

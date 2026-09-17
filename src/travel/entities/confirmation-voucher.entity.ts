@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import type { TermSnapshot } from '../../terms/entities/term.entity';
 
 @Entity('confirmation_vouchers')
 @Index('UQ_confirmation_vouchers_tenant_voucher', ['tenantId', 'voucherNo'], {
@@ -48,6 +49,9 @@ export class ConfirmationVoucher {
 
   @Column({ type: 'jsonb' })
   data: Record<string, unknown>;
+
+  @Column({ type: 'jsonb', name: 'terms_snapshot', default: [] })
+  termsSnapshot: TermSnapshot[];
 
   @Index('IDX_confirmation_vouchers_package_id')
   @Column({ type: 'uuid', name: 'package_id', nullable: true })

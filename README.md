@@ -1,7 +1,8 @@
 # Backend
 
 NestJS + TypeORM + PostgreSQL API for the frontend app. Ships with
-registration, login, password recovery, RBAC, travel vouchers, company settings,
+registration, login, password recovery, RBAC, travel vouchers, tenant terms and
+conditions, company settings,
 and a per-tenant subscription payment gate.
 
 ## Quick start
@@ -41,6 +42,7 @@ The backend contains Vercel serverless function support configured via `api/inde
 | [11-multi-tenancy.md](docs/11-multi-tenancy.md) | tenants, tenant scoping, JWT tenantId, isolation rules, migration |
 | [12-subscriptions.md](docs/12-subscriptions.md) | tenant subscription gate (402), skip decorator, mark paid/unpaid |
 | [13-destinations-and-hotels.md](docs/13-destinations-and-hotels.md) | destination records, hotel relationships, and Nominatim fallback |
+| [14-terms-and-conditions.md](docs/14-terms-and-conditions.md) | tenant terms management and immutable voucher terms snapshots |
 
 ## Commands
 

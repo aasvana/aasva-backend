@@ -65,9 +65,19 @@ to `tenants`, indexed:
 - `confirmation_vouchers.tenant_id` — index
   `IDX_confirmation_vouchers_tenant_id`; uniqueness changed from
   `UNIQUE (voucher_no)` to `UNIQUE (tenant_id, voucher_no)`.
+- `packages.tenant_id` — tenant-scoped Package rows and tenant-unique slugs.
+- `terms_and_conditions.tenant_id` — index
+  `IDX_terms_conditions_tenant_id`; every tenant owns separate term rows.
 
 So `company_settings` is a per-tenant singleton rather than a global one, and
 voucher numbers are only unique within a tenant.
+
+### `terms_and_conditions`
+`id uuid PK`, `tenant_id` (NOT NULL FK→tenants, cascade delete),
+`title` (varchar 255, nullable), `content` (text), `sort_order`, `is_active`,
+`created_by`, `created_at`, `updated_at`. Vouchers preserve a creation-time
+copy in `confirmation_vouchers.terms_snapshot` (JSONB); see
+[14-terms-and-conditions.md](14-terms-and-conditions.md).
 
 ## Migrations (in `src/database/migrations/`)
 
@@ -104,8 +114,16 @@ voucher numbers are only unique within a tenant.
     `subscription_plans` and seeds five plans (`monthly`/`biannually`/`annually`/
     `trial`/`lifetime`); adds `modules.sub_modules` jsonb and seeds the per-module
      sub-module catalogue. See `12-subscriptions.md`.
- 13. `1760000000020-AddInvoicesSubModule` — adds `Invoices` to the existing
-     Accounting sub-module catalogue for databases that already ran the seed.
+  13. `1760000000020-AddInvoicesSubModule` — adds `Invoices` to the existing
+      Accounting sub-module catalogue for databases that already ran the seed.
+  14. `1760000000031-CreateTermsAndConditions` — creates `terms_and_conditions`
+      and adds `confirmation_vouchers.terms_snapshot`.
+  15. `1760000000032-SeedTermsPermissions` — seeds `terms:*` permissions and
+      grants them to administrative roles.
+  16. `1760000000033-SeedDefaultTermsAndConditions` — seeds 27 default terms per
+      tenant and backfills empty voucher snapshots from active tenant terms.
+  17. `1760000000034-AddTermsAndConditionsSubModule` — adds the Travel
+      sub-module catalogue entry for Terms & Conditions.
 
 TypeORM 1.x derives each migration's timestamp from the **last 13 digits of the
 class name** — keep that suffix when adding migrations

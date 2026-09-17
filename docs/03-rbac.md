@@ -23,6 +23,9 @@ roles:read, roles:create, roles:update, roles:delete
 permissions:read, permissions:create, permissions:update, permissions:delete
 ```
 
+Feature migrations extend the catalog; Terms and Conditions adds
+`terms:read`, `terms:create`, `terms:update`, and `terms:delete`.
+
 ## How authorization works
 
 Role, permission, and module names are embedded in the **access token** at login.
