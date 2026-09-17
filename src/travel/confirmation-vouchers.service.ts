@@ -75,6 +75,7 @@ export class ConfirmationVouchersService {
   private static buildEntity(
     voucherNo: string,
     data: VoucherDataDto,
+    packageId?: string,
   ): Partial<ConfirmationVoucher> {
     if (!ConfirmationVouchersService.sameVoucherNumber(voucherNo, data)) {
       throw new BadRequestException('voucherNo must match data.voucherNo');
@@ -86,6 +87,7 @@ export class ConfirmationVouchersService {
       agentName: data.agentName ?? '',
       paymentType: data.paymentType ?? '',
       journeyDate: data.journeyDate ? new Date(data.journeyDate) : null,
+      packageId: packageId ?? null,
       data: data as unknown as Record<string, unknown>,
     };
   }
@@ -103,7 +105,11 @@ export class ConfirmationVouchersService {
       );
     }
     const entity = this.voucherRepository.create({
-      ...ConfirmationVouchersService.buildEntity(dto.voucherNo, dto.data),
+      ...ConfirmationVouchersService.buildEntity(
+        dto.voucherNo,
+        dto.data,
+        dto.packageId,
+      ),
       tenantId,
     });
     return this.voucherRepository.save(entity);
@@ -129,10 +135,17 @@ export class ConfirmationVouchersService {
     }
 
     const patch = dto.data
-      ? ConfirmationVouchersService.buildEntity(nextVoucherNo, dto.data)
+      ? ConfirmationVouchersService.buildEntity(
+          nextVoucherNo,
+          dto.data,
+          dto.packageId,
+        )
       : {};
 
     const merged = this.voucherRepository.merge(voucher, patch);
+    if (dto.packageId !== undefined) {
+      merged.packageId = dto.packageId ?? null;
+    }
     if (dto.voucherNo) {
       merged.voucherNo = dto.voucherNo;
       merged.data = {

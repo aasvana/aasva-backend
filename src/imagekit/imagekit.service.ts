@@ -18,6 +18,7 @@ export class ImageKitService {
   async upload(
     dataUrl: string,
     fileName = 'company-logo',
+    folder = '/logos',
   ): Promise<ImageKitUploadResult | null> {
     if (!this.isConfigured) return null;
     const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
@@ -40,7 +41,7 @@ export class ImageKitService {
     const form = new FormData();
     form.append('file', base64);
     form.append('fileName', `${fileName}.${ext}`);
-    form.append('folder', '/logos');
+    form.append('folder', folder);
     form.append('useUniqueFileName', 'true');
     form.append('isPrivateFile', 'false');
 

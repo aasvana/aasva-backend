@@ -2,7 +2,9 @@ import { Type } from 'class-transformer';
 import {
   IsNotEmpty,
   IsObject,
+  IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -13,6 +15,10 @@ export class CreateConfirmationVoucherDto {
   @IsNotEmpty()
   @MaxLength(64)
   voucherNo: string;
+
+  @IsOptional()
+  @IsUUID()
+  packageId?: string;
 
   @IsObject()
   @ValidateNested()

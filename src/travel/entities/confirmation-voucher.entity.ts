@@ -49,6 +49,10 @@ export class ConfirmationVoucher {
   @Column({ type: 'jsonb' })
   data: Record<string, unknown>;
 
+  @Index('IDX_confirmation_vouchers_package_id')
+  @Column({ type: 'uuid', name: 'package_id', nullable: true })
+  packageId: string | null;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 
