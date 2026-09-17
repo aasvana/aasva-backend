@@ -134,17 +134,25 @@ Response:
 }
 ```
 
-- `data.voucherNo` must equal the top-level `voucherNo` → else `400`
-  (`voucherNo must match data.voucherNo`).
+- `data.voucherNo`, when present, must equal the top-level `voucherNo` → else
+  `400` (`voucherNo must match data.voucherNo`). If `data.voucherNo` is absent
+  the check is skipped (used for partial saves).
 - Duplicate `voucherNo` → `409 Conflict`.
-- `data.agentName` is `@IsOptional` (max 255 chars); it flows into the
-  denormalized `agent_name` column.
+- **Partial saves are allowed.** Every field of `VoucherDataDto` (and its nested
+  `travellers` / `hotels` / `itineraries` DTOs) is `@IsOptional` and only
+  string/max-length constrained — the backend deliberately does **not** enforce
+  format rules (phones, emails, dates, amounts) or "all fields present"
+  requirements. Completeness is owned by the frontend zod schema; the backend
+  stores whatever subset has been filled in as the `data` JSONB blob so a
+  voucher can be saved at any step of the wizard. `data` also accepts the
+  form-only keys `packageName`, `numberOfPersons`, `numberOfTourDays`.
+- `data.agentName`/`data.customerName`/`data.companyName` are optional; missing
+  values flow into the denormalized columns as `''` so the NOT NULL columns are
+  never violated (e.g. saving step 1 alone sets `customer_name` = `''` when the
+  name is still empty).
 - `packageId` is `@IsOptional @IsUUID`; when supplied it is stored in the
   `package_id` column. The voucher's `data.itineraries` remains an independent
   snapshot, so the Package can evolve without touching this voucher.
-- Dates (`bookingDate`, `journeyDate`, flight/hotel dates) are ISO strings
-  and validated with `IsDateString`; amounts match `^\d+(\.\d{1,2})?$`;
-  phones/mobile are 10 digits.
 
 ### PATCH `/vouchers/:id` body
 
@@ -239,7 +247,9 @@ unless an explicit `slug` is given.
 - [ ] Admin roles list vouchers with pagination/search/sort
 - [ ] Non-admin → `403`; missing role/permission enforced
 - [ ] Create, update, delete work; delete → `204`
-- [ ] `data.voucherNo !== voucherNo` on create/patch → `400`
+- [ ] Partial `data` (any subset, incl. missing `voucherNo` inside `data`) saves
+      without format validation; the full complete payload (incl.
+      `packageName`/`numberOfPersons`/`numberOfTourDays` inside `data`) also saves
 - [ ] Duplicate `voucherNo` → `409`
 - [ ] `GET /vouchers/:id` for a nonexistent id → `404`
 - [ ] `data` JSONB and denormalized columns stay in sync on create/update

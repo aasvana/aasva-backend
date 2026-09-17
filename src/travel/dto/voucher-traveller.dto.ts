@@ -1,23 +1,18 @@
-import {
-  IsIn,
-  IsNotEmpty,
-  IsString,
-  Matches,
-  MaxLength,
-} from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class VoucherTravellerDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  name: string;
+  name?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d{1,3}$/)
-  age: string;
+  @MaxLength(20)
+  age?: string;
 
+  @IsOptional()
   @IsString()
-  @IsIn(['male', 'female'])
-  gender: string;
+  @MaxLength(20)
+  gender?: string;
 }

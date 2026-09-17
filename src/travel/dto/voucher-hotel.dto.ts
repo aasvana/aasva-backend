@@ -1,56 +1,58 @@
-import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class VoucherHotelDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  destination: string;
+  destination?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  hotelName: string;
+  hotelName?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(50)
+  mealType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  room?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  roomCategory?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(20)
-  mealType: string;
+  maxOccupancy?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  room: string;
+  adults?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  roomCategory: string;
+  children?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d+$/)
-  maxOccupancy: string;
+  @MaxLength(20)
+  extraMattress?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d+$/)
-  adults: string;
+  @MaxLength(20)
+  checkinDate?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d+$/)
-  children: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d+$/)
-  extraMattress: string;
-
-  @IsString()
-  @IsNotEmpty()
-  checkinDate: string;
-
-  @IsString()
-  @IsNotEmpty()
-  checkoutDate: string;
+  @MaxLength(20)
+  checkoutDate?: string;
 }

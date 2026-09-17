@@ -67,14 +67,14 @@ export class ConfirmationVouchersService {
 
   private static sameVoucherNumber(
     topLevel: string,
-    data: VoucherDataDto,
+    data?: Partial<VoucherDataDto>,
   ): boolean {
-    return topLevel === data.voucherNo;
+    return !data?.voucherNo || topLevel === data.voucherNo;
   }
 
   private static buildEntity(
     voucherNo: string,
-    data: VoucherDataDto,
+    data: Partial<VoucherDataDto>,
     packageId?: string,
   ): Partial<ConfirmationVoucher> {
     if (!ConfirmationVouchersService.sameVoucherNumber(voucherNo, data)) {
@@ -82,13 +82,13 @@ export class ConfirmationVouchersService {
     }
     return {
       voucherNo,
-      customerName: data.customerName,
+      customerName: data.customerName ?? '',
       companyName: data.companyName ?? '',
       agentName: data.agentName ?? '',
       paymentType: data.paymentType ?? '',
       journeyDate: data.journeyDate ? new Date(data.journeyDate) : null,
       packageId: packageId ?? null,
-      data: data as unknown as Record<string, unknown>,
+      data: data,
     };
   }
 

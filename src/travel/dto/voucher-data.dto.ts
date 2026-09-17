@@ -1,15 +1,9 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
-  IsDateString,
-  IsEmail,
-  IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
-  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { VoucherTravellerDto } from './voucher-traveller.dto';
@@ -17,189 +11,216 @@ import { VoucherHotelDto } from './voucher-hotel.dto';
 import { VoucherItineraryDto } from './voucher-itinerary.dto';
 
 export class VoucherDataDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  customerName: string;
+  customerName?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d{10}$/)
-  mobileNo: string;
+  @MaxLength(200)
+  packageName?: string;
 
-  @IsEmail()
-  @MaxLength(255)
-  emailAddress: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  mobileNo?: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(255)
-  companyName: string;
+  emailAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  companyName?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(255)
   agentName?: string;
 
-  @IsDateString()
-  journeyDate: string;
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(20)
+  numberOfPersons?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  numberOfTourDays?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  journeyDate?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(80)
-  boardingAirline: string;
+  boardingAirline?: string;
 
-  @IsDateString()
-  boardingDate: string;
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(40)
+  boardingDate?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(20)
-  boardingFrom: string;
+  boardingFrom?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  boardingTo: string;
+  boardingTo?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  boardingDepartureTime: string;
+  boardingDepartureTime?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  boardingArrivalTime: string;
+  boardingArrivalTime?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(80)
-  returnAirline: string;
+  returnAirline?: string;
 
-  @IsDateString()
-  returnDate: string;
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(20)
-  returnFrom: string;
+  @MaxLength(40)
+  returnDate?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  returnTo: string;
+  returnFrom?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  returnDepartureTime: string;
+  returnTo?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  returnArrivalTime: string;
+  returnDepartureTime?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  returnArrivalTime?: string;
+
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => VoucherTravellerDto)
-  travellers: VoucherTravellerDto[];
+  travellers?: VoucherTravellerDto[];
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => VoucherHotelDto)
-  hotels: VoucherHotelDto[];
+  hotels?: VoucherHotelDto[];
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  packageIncluded: string;
+  @MaxLength(10000)
+  packageIncluded?: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  packageExcluded: string;
+  @MaxLength(10000)
+  packageExcluded?: string;
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => VoucherItineraryDto)
-  itineraries: VoucherItineraryDto[];
+  itineraries?: VoucherItineraryDto[];
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  checkinTime: string;
+  checkinTime?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  checkoutTime: string;
+  checkoutTime?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  smokingPolicy: string;
+  smokingPolicy?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  consumptionOfLiquor: string;
+  consumptionOfLiquor?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
-  assistanceName: string;
+  assistanceName?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d{10}$/)
-  assistancePhone: string;
+  @MaxLength(20)
+  assistancePhone?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
-  supportName: string;
+  supportName?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d{10}$/)
-  supportPhone: string;
+  @MaxLength(20)
+  supportPhone?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
-  emergencyName: string;
+  emergencyName?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d{10}$/)
-  emergencyPhone: string;
+  @MaxLength(20)
+  emergencyPhone?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(64)
-  voucherNo: string;
+  voucherNo?: string;
 
-  @IsDateString()
-  bookingDate: string;
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d+(\.\d{1,2})?$/)
-  totalAmount: string;
+  @MaxLength(40)
+  bookingDate?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(20)
+  totalAmount?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(64)
-  paymentType: string;
+  paymentType?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d+(\.\d{1,2})?$/)
-  amountReceived: string;
+  @MaxLength(20)
+  amountReceived?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d+(\.\d{1,2})?$/)
-  amountBalanced: string;
+  @MaxLength(20)
+  amountBalanced?: string;
 }

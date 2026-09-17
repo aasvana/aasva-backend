@@ -1,17 +1,18 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class VoucherItineraryDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  date: string;
+  @MaxLength(20)
+  date?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(200)
-  subject: string;
+  subject?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(4000)
-  itinerary: string;
+  @MaxLength(10000)
+  itinerary?: string;
 }
