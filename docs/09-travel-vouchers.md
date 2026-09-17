@@ -120,6 +120,7 @@ top-level column **and** rewrites `data.voucherNo`; a duplicate → `409`.
 - `src/travel/confirmation-vouchers.service.ts`, `src/travel/confirmation-vouchers.controller.ts`
 - `src/travel/travel.module.ts`
 - `src/travel/dto/{voucher-traveller,voucher-hotel,voucher-itinerary,voucher-data,create-confirmation-voucher,update-confirmation-voucher,find-vouchers-query}.dto.ts`
+- `src/travel/dto/{create-itinerary-template,update-itinerary-template,create-package}.dto.ts`
 - `src/database/migrations/1760000000011-CreateConfirmationVouchersTable.ts`
 - `src/database/migrations/1760000000012-SeedTravelVouchersPermissions.ts`
 - `src/database/migrations/1760000000015-AddAgentNameToConfirmationVouchers.ts`
@@ -136,3 +137,11 @@ top-level column **and** rewrites `data.voucherNo`; a duplicate → `409`.
 - [ ] `GET /vouchers/:id` for a nonexistent id → `404`
 - [ ] `data` JSONB and denormalized columns stay in sync on create/update
 - [ ] `agentName` (`@IsOptional`) persists to `data` + `agent_name` and is searchable
+
+## Package endpoints
+
+Package management endpoints are exposed at `/packages`. `POST /packages`
+rejects `price` and `status` (see `CreatePackageDto`); it accepts `subject` and
+at least one `days` entry. Price and status default to `0` and `active`
+respectively on creation. `PATCH /packages/:id` still accepts `price` and
+`status` via `UpdateItineraryTemplateDto`.

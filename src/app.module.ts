@@ -20,6 +20,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { DestinationsModule } from './destinations/destinations.module';
 import { HotelsModule } from './hotels/hotels.module';
+import { ItineraryTemplatesModule } from './travel/itinerary-templates.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { HotelsModule } from './hotels/hotels.module';
     ImageKitModule,
     DestinationsModule,
     HotelsModule,
+    ItineraryTemplatesModule,
   ],
   controllers: [AppController],
   providers: [

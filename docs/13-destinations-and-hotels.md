@@ -4,6 +4,12 @@ Destinations are canonical shared place records used by all tenants.
 Hotels are also shared records, reference destinations through `destination_id`, and do not duplicate
 geographic fields.
 
+Reusable voucher Packages are exposed through `/api/packages` (with the legacy
+itinerary-template endpoint retained for compatibility). Packages are tenant-scoped,
+duplicate names are allowed, and only ordered
+day subjects/descriptions are stored; voucher dates are applied by the current
+voucher when a template is reused.
+
 Searches return the shared master records for the requesting tenant. Creating a
 destination or hotel deduplicates globally, so one tenant's addition becomes
 available to every tenant without creating tenant-specific copies.

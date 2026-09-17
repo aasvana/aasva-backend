@@ -15,6 +15,10 @@ import { Tenant } from '../tenants/entities/tenant.entity';
 import { SubscriptionPlan } from '../tenants/entities/subscription-plan.entity';
 import { Destination } from '../destinations/entities/destination.entity';
 import { Hotel } from '../hotels/entities/hotel.entity';
+import {
+  ItineraryTemplate,
+  ItineraryTemplateDay,
+} from '../travel/entities/itinerary-template.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -45,6 +49,8 @@ export const AppDataSource = new DataSource({
     CompanySetting,
     Destination,
     Hotel,
+    ItineraryTemplate,
+    ItineraryTemplateDay,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   synchronize: false,
