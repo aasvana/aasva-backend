@@ -82,6 +82,9 @@ export class ConfirmationVouchersService {
     if (!ConfirmationVouchersService.sameVoucherNumber(voucherNo, data)) {
       throw new BadRequestException('voucherNo must match data.voucherNo');
     }
+    if (!data.customerName?.trim()) {
+      throw new BadRequestException('customerName is required to save a draft');
+    }
     return {
       voucherNo,
       customerName: data.customerName ?? '',

@@ -165,9 +165,15 @@ Response:
   values flow into the denormalized columns as `''` so the NOT NULL columns are
   never violated (e.g. saving step 1 alone sets `customer_name` = `''` when the
   name is still empty).
+- `customerName` is required for create-draft and update-draft saves. Other
+  voucher fields remain optional for partial saves; a PATCH that omits `data`
+  is still allowed to update only top-level fields.
 - `packageId` is `@IsOptional @IsUUID`; when supplied it is stored in the
   `package_id` column. The voucher's `data.itineraries` remains an independent
   snapshot, so the Package can evolve without touching this voucher.
+- Hotel `checkinDate`/`checkoutDate` and itinerary `date` values accept up to 40
+  characters because the frontend sends ISO date strings after Axios
+  serialization.
 - Creation also stores the tenant’s ordered active Terms and Conditions in
   `terms_snapshot`. The snapshot is not supplied by the client.
 

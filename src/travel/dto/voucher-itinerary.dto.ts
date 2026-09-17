@@ -3,7 +3,7 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
 export class VoucherItineraryDto {
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(40)
   date?: string;
 
   @IsOptional()

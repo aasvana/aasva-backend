@@ -48,11 +48,11 @@ export class VoucherHotelDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(40)
   checkinDate?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(40)
   checkoutDate?: string;
 }
