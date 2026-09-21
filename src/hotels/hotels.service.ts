@@ -6,6 +6,7 @@ import { Destination } from '../destinations/entities/destination.entity';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
 import { Hotel } from './entities/hotel.entity';
+import { capitalizeWords } from '../common/utils/text-format.util';
 
 @Injectable()
 export class HotelsService {
@@ -39,6 +40,7 @@ export class HotelsService {
 
   async create(dto: CreateHotelDto): Promise<Hotel> {
     this.tenantContext.require();
+    const name = capitalizeWords(dto.name);
     const destination = await this.destinations.findOne({
       where: { id: dto.destinationId },
     });
@@ -46,14 +48,14 @@ export class HotelsService {
     const existing = await this.hotels.findOne({
       where: {
         destinationId: dto.destinationId,
-        normalizedName: dto.name.trim().toLowerCase().replace(/\s+/g, ' '),
+        normalizedName: name.toLowerCase(),
       },
     });
     if (existing) return existing;
     const hotel = this.hotels.create({
       ...dto,
-      name: dto.name.trim(),
-      normalizedName: dto.name.trim().toLowerCase().replace(/\s+/g, ' '),
+       name,
+       normalizedName: name.toLowerCase(),
       starRating: dto.starRating ?? '',
       notes: dto.notes ?? '',
       destination,
@@ -63,19 +65,20 @@ export class HotelsService {
 
   async update(id: string, dto: CreateHotelDto): Promise<Hotel> {
     this.tenantContext.require();
+    const name = capitalizeWords(dto.name);
     const hotel = await this.hotels.findOne({ where: { id } });
     if (!hotel) throw new NotFoundException('Hotel not found');
     const destination = await this.destinations.findOne({
       where: { id: dto.destinationId },
     });
     if (!destination) throw new NotFoundException('Destination not found');
-    const normalizedName = dto.name.trim().toLowerCase().replace(/\s+/g, ' ');
+    const normalizedName = name.toLowerCase();
     const duplicate = await this.hotels.findOne({
       where: { destinationId: dto.destinationId, normalizedName },
     });
     if (duplicate && duplicate.id !== id) return duplicate;
     Object.assign(hotel, {
-      name: dto.name.trim(),
+       name,
       normalizedName,
       destinationId: dto.destinationId,
       destination,

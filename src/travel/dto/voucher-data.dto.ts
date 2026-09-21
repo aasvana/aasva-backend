@@ -18,6 +18,11 @@ export class VoucherDataDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(8)
+  customerTitle?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(200)
   packageName?: string;
 

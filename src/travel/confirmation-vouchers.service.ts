@@ -13,6 +13,7 @@ import { FindVouchersQueryDto } from './dto/find-vouchers-query.dto';
 import { VoucherDataDto } from './dto/voucher-data.dto';
 import { TermsService } from '../terms/terms.service';
 import { TenantContext } from '../common/tenant/tenant-context.service';
+import { capitalizeWords } from '../common/utils/text-format.util';
 
 export interface PaginatedVouchers {
   items: ConfirmationVoucher[];
@@ -85,15 +86,32 @@ export class ConfirmationVouchersService {
     if (!data.customerName?.trim()) {
       throw new BadRequestException('customerName is required to save a draft');
     }
+    const title = data.customerTitle && ['Mr', 'Mrs', 'Ms'].includes(data.customerTitle)
+      ? data.customerTitle
+      : '';
+    const normalizedCustomerName = data.customerName
+      ? `${title ? `${title} ` : ''}${capitalizeWords(data.customerName.replace(/^(Mr|Mrs|Ms)\s+/i, ''))}`.trim()
+      : data.customerName;
+    const normalizedData = {
+      ...data,
+      customerName: normalizedCustomerName,
+      packageName: data.packageName ? capitalizeWords(data.packageName) : data.packageName,
+      hotels: data.hotels?.map((hotel) => ({
+        ...hotel,
+        destination: hotel.destination ? capitalizeWords(hotel.destination) : hotel.destination,
+        hotelName: hotel.hotelName ? capitalizeWords(hotel.hotelName) : hotel.hotelName,
+      })),
+    };
+    delete normalizedData.customerTitle;
     return {
       voucherNo,
-      customerName: data.customerName ?? '',
-      companyName: data.companyName ?? '',
-      agentName: data.agentName ?? '',
-      paymentType: data.paymentType ?? '',
-      journeyDate: data.journeyDate ? new Date(data.journeyDate) : null,
+      customerName: normalizedData.customerName ?? '',
+      companyName: normalizedData.companyName ?? '',
+      agentName: normalizedData.agentName ?? '',
+      paymentType: normalizedData.paymentType ?? '',
+      journeyDate: normalizedData.journeyDate ? new Date(normalizedData.journeyDate) : null,
       packageId: packageId ?? null,
-      data: data,
+      data: normalizedData,
     };
   }
 

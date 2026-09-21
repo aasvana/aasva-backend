@@ -13,6 +13,7 @@ import {
   NominatimService,
   NominatimResult,
 } from '../locations/nominatim.service';
+import { capitalizeWords } from '../common/utils/text-format.util';
 
 const normalize = (value: string) =>
   value.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -71,7 +72,7 @@ export class DestinationsService {
 
   async create(dto: CreateDestinationDto): Promise<Destination> {
     this.tenantContext.require();
-    const name = dto.name.trim();
+    const name = capitalizeWords(dto.name);
     const normalizedName = normalize(name);
     const fingerprint = this.fingerprint(dto);
     const existing = await this.destinations.findOne({
@@ -133,8 +134,8 @@ export class DestinationsService {
     if (!destination) throw new NotFoundException('Destination not found');
     Object.assign(destination, {
       ...dto,
-      name: dto.name?.trim() ?? destination.name,
-      slug: dto.name ? slugify(dto.name) : destination.slug,
+         name: dto.name ? capitalizeWords(dto.name) : destination.name,
+         slug: dto.name ? slugify(capitalizeWords(dto.name)) : destination.slug,
       normalizedName: dto.name
         ? normalize(dto.name)
         : destination.normalizedName,

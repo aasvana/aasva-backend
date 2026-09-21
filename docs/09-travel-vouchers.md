@@ -3,6 +3,18 @@
 Module: `src/travel/` — CRUD API for travel confirmation vouchers and the
 reusable Package architecture that backs the itinerary part of a voucher.
 
+Tenant travel configuration is stored in `travel_settings`, including voucher
+prefix/suffix, voucher defaults, and the ordered `general_details` JSONB list.
+Use authenticated `GET/PATCH /travel/settings`; the tenant context scopes both
+operations. `checkinTime` and `checkoutTime` entries are validated as `HH:mm`.
+Blank time values are allowed for partial settings configuration; non-empty time
+values must use `HH:mm`.
+
+Voucher customer names, package names, hotel names, and destination names are
+normalized to readable word capitalization at the backend persistence boundary.
+This prevents API callers from storing all-uppercase or all-lowercase values;
+short uppercase codes and numeric tokens are preserved.
+
 All routes are protected by `@Permissions(...)` and granted (via seed migration
 `1760000000012`) to `systemadmin`, `superadmin`, and `admin` roles. The one
 exception is `GET /packages/public/by-slug/:slug`, which is `@Public()` and only
