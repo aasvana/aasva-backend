@@ -86,6 +86,9 @@ export class ConfirmationVouchersService {
     if (!data.customerName?.trim()) {
       throw new BadRequestException('customerName is required to save a draft');
     }
+    if (!data.packageName?.trim()) {
+      throw new BadRequestException('packageName is required to save a voucher');
+    }
     const title = data.customerTitle && ['Mr', 'Mrs', 'Ms'].includes(data.customerTitle)
       ? data.customerTitle
       : '';

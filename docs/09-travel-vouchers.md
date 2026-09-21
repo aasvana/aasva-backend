@@ -10,6 +10,11 @@ operations. `checkinTime` and `checkoutTime` entries are validated as `HH:mm`.
 Blank time values are allowed for partial settings configuration; non-empty time
 values must use `HH:mm`.
 
+The invoice-numbering migration is idempotent because the initial travel-settings
+migration may already include the invoice columns in databases deployed from an
+intermediate source revision. It uses `ADD COLUMN IF NOT EXISTS` so production
+migration runs do not fail on duplicate columns.
+
 Voucher customer names, package names, hotel names, and destination names are
 normalized to readable word capitalization at the backend persistence boundary.
 This prevents API callers from storing all-uppercase or all-lowercase values;
