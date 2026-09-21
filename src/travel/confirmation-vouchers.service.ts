@@ -89,9 +89,12 @@ export class ConfirmationVouchersService {
     if (!data.packageName?.trim()) {
       throw new BadRequestException('packageName is required to save a voucher');
     }
+    const existingTitle = data.customerName?.match(/^(Mr|Mrs|Ms)\s+/i)?.[1];
     const title = data.customerTitle && ['Mr', 'Mrs', 'Ms'].includes(data.customerTitle)
       ? data.customerTitle
-      : '';
+      : existingTitle
+        ? existingTitle.charAt(0).toUpperCase() + existingTitle.slice(1).toLowerCase()
+        : '';
     const normalizedCustomerName = data.customerName
       ? `${title ? `${title} ` : ''}${capitalizeWords(data.customerName.replace(/^(Mr|Mrs|Ms)\s+/i, ''))}`.trim()
       : data.customerName;
@@ -99,6 +102,10 @@ export class ConfirmationVouchersService {
       ...data,
       customerName: normalizedCustomerName,
       packageName: data.packageName ? capitalizeWords(data.packageName) : data.packageName,
+      travellers: data.travellers?.map((traveller) => ({
+        ...traveller,
+        name: traveller.name ? capitalizeWords(traveller.name) : traveller.name,
+      })),
       hotels: data.hotels?.map((hotel) => ({
         ...hotel,
         destination: hotel.destination ? capitalizeWords(hotel.destination) : hotel.destination,
