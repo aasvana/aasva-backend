@@ -11,6 +11,7 @@ import { PasswordResetToken } from '../auth/entities/password-reset-token.entity
 import { OAuthIdentity } from '../auth/entities/oauth-identity.entity';
 import { ConfirmationVoucher } from '../travel/entities/confirmation-voucher.entity';
 import { TravelSettings } from '../travel/entities/travel-settings.entity';
+import { TravelVoucherSequence } from '../travel/entities/travel-voucher-sequence.entity';
 import { Term } from '../terms/entities/term.entity';
 import { CompanySetting } from '../company/entities/company-setting.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -52,6 +53,7 @@ export const AppDataSource = new DataSource({
     OAuthIdentity,
     ConfirmationVoucher,
     TravelSettings,
+    TravelVoucherSequence,
     Term,
     CompanySetting,
     Destination,

@@ -11,10 +11,10 @@ import {
 import { VoucherDataDto } from './voucher-data.dto';
 
 export class CreateConfirmationVoucherDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(64)
-  voucherNo: string;
+  voucherNo?: string;
 
   @IsOptional()
   @IsUUID()

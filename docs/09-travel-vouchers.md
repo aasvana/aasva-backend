@@ -9,6 +9,18 @@ Use authenticated `GET/PATCH /travel/settings`; the tenant context scopes both
 operations. `checkinTime` and `checkoutTime` entries are validated as `HH:mm`.
 Blank time values are allowed for partial settings configuration; non-empty time
 values must use `HH:mm`.
+Voucher numbers are generated server-side through the tenant-scoped sequence
+table and `/vouchers/next-number`; the client-provided number is not trusted for
+new records. Numeric suffixes define padding width; non-numeric suffixes are
+appended literally. Existing voucher numbers remain unchanged during updates.
+The next-number endpoint is preview-only and does not consume a sequence value;
+the sequence advances only when a voucher is actually created. Migration
+`1760000000038-RepairTravelVoucherSequences` aligns counters inflated by earlier
+preview requests with the highest saved voucher number.
+Preview and creation inspect the actual tenant voucher rows and use the highest
+matching numeric voucher value as the source of truth. The sequence row is only
+updated as a concurrency record and can never cause a preview such as `007` when
+the highest matching saved voucher is only `003`.
 
 The invoice-numbering migration is idempotent because the initial travel-settings
 migration may already include the invoice columns in databases deployed from an
@@ -19,6 +31,13 @@ Voucher customer names, package names, hotel names, and destination names are
 normalized to readable word capitalization at the backend persistence boundary.
 This prevents API callers from storing all-uppercase or all-lowercase values;
 short uppercase codes and numeric tokens are preserved.
+Voucher saves reject hotel check-in or check-out dates earlier than the journey
+date, and reject a hotel check-out earlier than its check-in date. This backend
+check complements the frontend calendar and schema validation.
+Voucher saves also reject any itinerary date earlier than the journey date.
+When a generated number already exists, creation advances the tenant sequence
+and retries until it finds an unused number. For example, if `aasva-cv-002`
+already exists, the next available generated number is `aasva-cv-003`.
 
 All routes are protected by `@Permissions(...)` and granted (via seed migration
 `1760000000012`) to `systemadmin`, `superadmin`, and `admin` roles. The one

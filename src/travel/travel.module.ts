@@ -7,9 +7,10 @@ import { ConfirmationVouchersController } from './confirmation-vouchers.controll
 import { TravelSettings } from './entities/travel-settings.entity';
 import { TravelSettingsController } from './travel-settings.controller';
 import { TravelSettingsService } from './travel-settings.service';
+import { TravelVoucherSequence } from './entities/travel-voucher-sequence.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ConfirmationVoucher, TravelSettings]), TermsModule],
+  imports: [TypeOrmModule.forFeature([ConfirmationVoucher, TravelSettings, TravelVoucherSequence]), TermsModule],
   controllers: [ConfirmationVouchersController, TravelSettingsController],
   providers: [ConfirmationVouchersService, TravelSettingsService],
   exports: [ConfirmationVouchersService, TravelSettingsService],

@@ -16,6 +16,8 @@ import { CreateConfirmationVoucherDto } from './dto/create-confirmation-voucher.
 import { UpdateConfirmationVoucherDto } from './dto/update-confirmation-voucher.dto';
 import { FindVouchersQueryDto } from './dto/find-vouchers-query.dto';
 import { Permissions } from '../common/decorators/permissions.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { JwtUser } from '../common/decorators/current-user.decorator';
 
 @Controller('vouchers')
 export class ConfirmationVouchersController {
@@ -29,6 +31,12 @@ export class ConfirmationVouchersController {
     return this.confirmationVouchersService.findAll(query);
   }
 
+  @Get('next-number')
+  @Permissions('vouchers:create')
+  nextNumber() {
+    return this.confirmationVouchersService.nextNumber();
+  }
+
   @Get(':id')
   @Permissions('vouchers:read')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
@@ -37,8 +45,8 @@ export class ConfirmationVouchersController {
 
   @Post()
   @Permissions('vouchers:create')
-  create(@Body() dto: CreateConfirmationVoucherDto) {
-    return this.confirmationVouchersService.create(dto);
+  create(@Body() dto: CreateConfirmationVoucherDto, @CurrentUser() user: JwtUser) {
+    return this.confirmationVouchersService.create(dto, user);
   }
 
   @Patch(':id')
@@ -46,8 +54,9 @@ export class ConfirmationVouchersController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateConfirmationVoucherDto,
+    @CurrentUser() user: JwtUser,
   ) {
-    return this.confirmationVouchersService.update(id, dto);
+    return this.confirmationVouchersService.update(id, dto, user);
   }
 
   @Delete(':id')
