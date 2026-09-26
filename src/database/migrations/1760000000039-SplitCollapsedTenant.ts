@@ -17,6 +17,8 @@ const PLATFORM_ADMIN_EMAILS = [
   'developer@aasvana.com',
 ] as const;
 
+const CUSTOMER_ROLE_AFTER_SPLIT = 'admin';
+
 const RESET_PLATFORM_BRANDING = true;
 
 const PLATFORM_BRANDING = {
@@ -148,6 +150,41 @@ export class SplitCollapsedTenant1760000000039 implements MigrationInterface {
     await this.assertPlatformAdminsIntact(queryRunner);
   }
 
+  private async demoteCustomerRole(
+    queryRunner: QueryRunner,
+    userId: string,
+    email: string,
+    currentRoles: string[],
+  ): Promise<void> {
+    const elevated = currentRoles.filter(
+      (r) => r === 'systemadmin' || r === 'superadmin',
+    );
+    if (elevated.length === 0) return;
+
+    await queryRunner.query(
+      `DELETE FROM "user_roles" ur
+         USING "roles" r
+        WHERE ur."role_id" = r."id"
+          AND ur."user_id" = $1
+          AND r."name" IN ('systemadmin', 'superadmin')`,
+      [userId],
+    );
+
+    await queryRunner.query(
+      `INSERT INTO "user_roles" ("user_id", "role_id")
+       SELECT $1, r."id" FROM "roles" r
+        WHERE r."name" = $2
+        ON CONFLICT DO NOTHING`,
+      [userId, CUSTOMER_ROLE_AFTER_SPLIT],
+    );
+
+    console.log(
+      `[migration] DEMOTED "${email}": removed role(s) ${elevated.join(', ')} and granted "${CUSTOMER_ROLE_AFTER_SPLIT}". ` +
+        `The removed roles are platform roles that grant cross-tenant access to every tenant's users and ` +
+        `subscriptions (isPlatformAdmin() in users.service.ts). A customer must not keep them once it has its own tenant.`,
+    );
+  }
+
   private async repairBrokenDefaultLogo(
     queryRunner: QueryRunner,
   ): Promise<void> {
@@ -239,20 +276,29 @@ export class SplitCollapsedTenant1760000000039 implements MigrationInterface {
     }
 
     const user = users[0];
-    const isPlatformAdmin = user.roles.some(
-      (r) => r === 'systemadmin' || r === 'superadmin',
+
+    const isListedPlatformAdmin = PLATFORM_ADMIN_EMAILS.some(
+      (e) => e.toLowerCase() === split.email.toLowerCase(),
     );
-    if (isPlatformAdmin) {
+    if (isListedPlatformAdmin) {
       throw new Error(
-        `SplitCollapsedTenant: refusing to move "${split.email}" because it holds the systemadmin/superadmin role. Platform admins stay on the default tenant.`,
+        `SplitCollapsedTenant: "${split.email}" is listed in PLATFORM_ADMIN_EMAILS and must not be split off. Remove it from CUSTOMER_SPLITS.`,
       );
     }
+
     if (user.tenant_id !== DEFAULT_TENANT_ID) {
       console.log(
         `[migration] ${split.email} is already on tenant ${user.tenant_id}; skipping.`,
       );
       return false;
     }
+
+    await this.demoteCustomerRole(
+      queryRunner,
+      user.id,
+      split.email,
+      user.roles,
+    );
 
     const tenantId = randomBytes(16).toString('hex');
     const formattedTenantId = `${tenantId.slice(0, 8)}-${tenantId.slice(8, 12)}-${tenantId.slice(12, 16)}-${tenantId.slice(16, 20)}-${tenantId.slice(20)}`;
@@ -328,12 +374,12 @@ export class SplitCollapsedTenant1760000000039 implements MigrationInterface {
 
     await queryRunner.query(
       `UPDATE "travel_voucher_sequences" s
-          SET "current_value" = COALESCE(matches."max_value", 0)
-         FROM (
-           SELECT MAX(${VOUCHER_NUMBER}) AS "max_value"
-             FROM "confirmation_vouchers" v
-            WHERE v."tenant_id" = s."tenant_id"
-         ) matches
+          SET "current_value" = COALESCE((
+                SELECT MAX(${VOUCHER_NUMBER})
+                  FROM "confirmation_vouchers" v
+                 WHERE v."tenant_id" = s."tenant_id"
+              ), 0),
+              "updated_at" = now()
         WHERE s."tenant_id" = $1`,
       [DEFAULT_TENANT_ID],
     );
