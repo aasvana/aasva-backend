@@ -39,7 +39,7 @@ The backend contains Vercel serverless function support configured via `api/inde
 | [08-google-oauth.md](docs/08-google-oauth.md) | Google OAuth flow, strategy, schema |
 | [09-travel-vouchers.md](docs/09-travel-vouchers.md) | voucher CRUD, tenant travel settings, and Package architecture (travel module) |
 | [10-company-settings.md](docs/10-company-settings.md) | company profile / branding / tax / registration settings; ImageKit logo upload; Gemini AI tagline |
-| [11-multi-tenancy.md](docs/11-multi-tenancy.md) | tenants, tenant scoping, JWT tenantId, isolation rules, migration |
+| [11-multi-tenancy.md](docs/11-multi-tenancy.md) | tenants, tenant scoping, JWT tenantId, isolation rules, migration, and splitting accounts collapsed onto the default tenant |
 | [12-subscriptions.md](docs/12-subscriptions.md) | tenant subscription gate (402), skip decorator, mark paid/unpaid |
 | [13-destinations-and-hotels.md](docs/13-destinations-and-hotels.md) | destination records, hotel relationships, and Nominatim fallback |
 | [14-terms-and-conditions.md](docs/14-terms-and-conditions.md) | tenant terms management and immutable voucher terms snapshots |

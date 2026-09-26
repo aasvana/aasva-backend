@@ -40,7 +40,7 @@ export class CreateCompanySettingsTable1760000000013 implements MigrationInterfa
         'Aasvana HQ',
         'https://www.aasvana.com',
         'Aasvana is a powerful and flexible web application template designed for building modern, responsive, and user-friendly applications.',
-        '/images/logo-light.svg',
+        '/imgs/brand/Aasvana_Logo.png',
         'Private Limited',
         'Aquib Shahbaz'
       )

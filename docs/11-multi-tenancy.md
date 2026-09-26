@@ -89,6 +89,45 @@ indirectly through their `user_id` FK).
 - The bootstrap admin (from `npm run seed`) and the seeded superadmins live in
   the **default** tenant.
 
+### Accounts collapsed onto the default tenant
+
+`1760000000017` backfilled every pre-existing `users` row onto
+`DEFAULT_TENANT_ID`. Because `company_settings` is `UNIQUE (tenant_id)`, all of
+those accounts read and wrote **one shared branding row** — the source of
+"changing the logo updates every account". The backend was correctly scoped the
+whole time; the accounts simply had not been separated.
+
+`1760000000039-SplitCollapsedTenant` separates them: it creates one tenant per
+customer company, copies the shared `company_settings` row into it so the
+customer keeps their branding, moves their `confirmation_vouchers`,
+`packages`, `terms_and_conditions` and `itinerary_templates`, reseeds
+`travel_voucher_sequences`, and repoints that one `users` row. It then resets
+the default tenant's branding to the Aasvana platform values. See
+"plitting the collapsed default tenant" in
+[06-database-migrations.md](06-database-migrations.md) for the required
+mapping constant and the operational notes.
+
+**System admins stay on the default tenant, and their authority is unaffected.**
+`techaquib@gmail.com` and `developer@aasvana.com` were seeded with the
+`systemadmin`, `superadmin`, `admin` and `user` roles
+(`1760000000003-SeedSuperadminUsers`). Authority comes from the `user_roles`
+join table and is evaluated by role in `TenantInterceptor` and `UsersService` —
+never by `tenant_id`. `1760000000039` writes only `users.tenant_id`, so no
+account can lose a role, and it enforces the invariant with two aborting guards:
+it refuses to move any `systemadmin`/`superadmin` account, and at the end of the
+run it re-reads both platform admins and throws unless they still exist, are
+still on the default tenant, and still hold `systemadmin`/`superadmin`. They
+retain cross-tenant administration through `GET /users` and
+`PATCH /users/:id/subscription`, which are systemadmin-gated and return data
+across tenants.
+
+Note that after a split, system admins no longer see a customer's vouchers,
+packages or terms in the ordinary dashboard, because the dashboard is
+tenant-scoped. Only the cross-tenant admin endpoints reach them. That loss of
+incidental visibility is the bug being fixed; if day-to-day support needs it,
+add impersonation or a read-only cross-tenant view rather than re-sharing a
+tenant.
+
 ## Tenant context (`src/common/tenant/`)
 
 - `tenant-context.service.ts` — `TenantContextProvider` holds an

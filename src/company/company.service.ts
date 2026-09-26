@@ -22,7 +22,7 @@ const COMPANY_DEFAULTS: Partial<CompanySetting> = {
   website: 'https://www.aasvana.com',
   tagline:
     'Aasvana is a powerful and flexible web application template designed for building modern, responsive, and user-friendly applications.',
-  logo: '/images/logo-light.svg',
+  logo: '/imgs/brand/Aasvana_Logo.png',
   currency: 'USD',
   gstin: '',
   pan: '',

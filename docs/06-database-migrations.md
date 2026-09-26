@@ -124,6 +124,105 @@ copy in `confirmation_vouchers.terms_snapshot` (JSONB); see
       tenant and backfills empty voucher snapshots from active tenant terms.
   17. `1760000000034-AddTermsAndConditionsSubModule` — adds the Travel
       sub-module catalogue entry for Terms & Conditions.
+ 18. `1760000000035-CreateTravelSettings` — creates `travel_settings`
+      (`UNIQUE (tenant_id)`) for per-tenant voucher/invoice numbering.
+ 19. `1760000000036-AddInvoiceNumberingToTravelSettings` — adds
+      `invoice_prefix` / `invoice_suffix`.
+ 20. `1760000000037-CreateTravelVoucherSequences` — creates
+      `travel_voucher_sequences` (`UNIQUE (tenant_id)`) and seeds one row per
+      tenant from that tenant's highest existing voucher number.
+ 21. `1760000000038-RepairTravelVoucherSequences` — data-repair migration that
+      recomputes every tenant's `current_value` from their actual vouchers.
+ 22. `1760000000039-SplitCollapsedTenant` — **data-repair migration, configured
+      and ready to run.** Splits pre-`0017` accounts that were all collapsed onto
+      the default tenant. See "Splitting the collapsed default tenant" below.
+
+### Splitting the collapsed default tenant
+
+`1760000000017` backfilled **every** pre-existing user onto
+`DEFAULT_TENANT_ID` (`00000000-0000-4000-8000-000000000001`). Accounts created
+before that migration therefore share one tenant, and because
+`company_settings` is `UNIQUE (tenant_id)` they also share **one branding
+row** — which is what made a logo/tagline change appear to propagate across
+unrelated accounts.
+
+`1760000000039` fixes this. It is configured at the top of the file with the
+customer to separate:
+
+```ts
+const CUSTOMER_SPLITS: CustomerSplit[] = [
+  { email: 'info@andamantripmaker.in', tenantName: 'Andaman Trip Maker' },
+];
+
+const PLATFORM_ADMIN_EMAILS = [
+  'techaquib@gmail.com',
+  'developer@aasvana.com',
+] as const;
+```
+
+Add a further entry to `CUSTOMER_SPLITS` to split another customer; the
+per-customer steps are:
+
+1. Resolve the user by email; **skip** (no-op, re-runnable) if they are already
+   on a non-default tenant. Refuses to move anyone holding
+   `systemadmin`/`superadmin`.
+2. Insert a tenant with `subscription_status = 'active'`,
+   `subscription_plan = 'lifetime'`, `subscription_paid_until = NULL` — the same
+   effective entitlement the default tenant has, so the customer loses no access
+   when the subscription gate starts applying to them.
+3. Copy the default tenant's `company_settings` row into the new tenant so the
+   customer keeps their logo and tagline.
+4. Copy `travel_settings` (or seed a default row) — it is `UNIQUE (tenant_id)`.
+5. Move `confirmation_vouchers`, `packages`, `terms_and_conditions` and
+   `itinerary_templates` to the new `tenant_id`, after asserting no
+   `voucher_no` collision (impossible for a new tenant, asserted anyway so a
+   re-run is safe).
+6. Reseed `travel_voucher_sequences` for the new tenant from the moved
+   vouchers' max number, and recompute the default tenant's counter.
+7. Repoint that one `users` row.
+
+Only `users.tenant_id` is ever written; the `user_roles` join table is never
+touched, so no account can lose a role through this migration.
+
+`destinations` and `hotels` are **not** touched — `1760000000023` deliberately
+dropped their `tenant_id`; they are global reference data.
+
+If `RESET_PLATFORM_BRANDING` is `true` (the default) and at least one split
+ran, the default tenant's `company_settings` row is reset to the Aasvana
+platform values. This is safe because step 3 already copied the customer's
+branding out. It is what stops the platform tenant from continuing to serve a
+customer's logo.
+
+`down()` reverses the user repoint and the record moves, then deletes the
+created tenant (its `company_settings`/`travel_settings` cascade). It does
+**not** restore the default tenant's overwritten branding — re-seed that row
+manually for a full revert.
+
+### Platform admin protection
+
+`techaquib@gmail.com` and `developer@aasvana.com` are the seeded platform
+admins (`1760000000003` grants them `systemadmin`, `superadmin`, `admin` and
+`user`). They **stay on the default tenant.** Their authority is role-based via
+`user_roles`, which this migration never writes to, and the subscription gate
+is bypassed by role rather than by tenant — so leaving them in place costs them
+nothing. They keep cross-tenant reach over the new tenant via `GET /users` and
+`PATCH /users/:id/subscription`.
+
+Two guards enforce this, and either one aborts and rolls back the whole run:
+
+- **Per-customer:** moving an account that holds `systemadmin`/`superadmin`
+  throws, so a mapping typo cannot push an admin into a customer tenant.
+- **End of run:** every `PLATFORM_ADMIN_EMAILS` account is re-read and must
+  still exist, still be on the default tenant, and still hold
+  `systemadmin`/`superadmin`.
+
+Operational notes:
+
+- No forced logout is needed. `AuthService.refresh` re-reads the user from the
+  DB and re-signs with the fresh `tenantId`, so a moved user is correct within
+  the access-token lifetime (default `15m`) or immediately on re-login.
+- After running, `SELECT logo, count(*) FROM company_settings GROUP BY logo
+  HAVING count(*) > 1` should return no rows.
 
 TypeORM 1.x derives each migration's timestamp from the **last 13 digits of the
 class name** — keep that suffix when adding migrations

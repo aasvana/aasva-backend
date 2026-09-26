@@ -59,6 +59,14 @@ following for every authenticated request:
 
 Everything else (running the `TenantContext`) is unchanged.
 
+**Moving a user off the default tenant switches the gate on for the first
+time.** Accounts backfilled onto `DEFAULT_TENANT_ID` by `1760000000017` have
+never been payment-checked. `1760000000039-SplitCollapsedTenant` therefore
+creates their new tenant with `active` / `lifetime` / `paid_until = NULL` — the
+same effective entitlement the default tenant carries — so the split costs them
+no access. `systemadmin` / `superadmin` accounts bypass the gate by role, so
+leaving them on the default tenant costs them nothing either.
+
 ### `@SkipSubscriptionGate()`
 
 `src/common/decorators/skip-subscription-gate.decorator.ts` — sets metadata

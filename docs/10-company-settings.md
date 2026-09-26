@@ -68,7 +68,7 @@ as a **string** (numeric column) — the frontend data layer coerces it with
   "address": "Aasvana HQ",
   "website": "https://www.aasvana.com",
   "tagline": "...",
-  "logo": "/images/logo-light.svg",
+  "logo": "/imgs/brand/Aasvana_Logo.png",
   "currency": "USD",
   "gstin": "",
   "pan": "",
@@ -121,7 +121,22 @@ images are resized and re-encoded to stay under the cap.
 - The endpoint is `PATCH /company` (no id) because the row is per-tenant
   singleton.
 - Every `getOrCreate()` and `update()` filters by `tenantId` — one tenant can
-  never read or modify another tenant's company settings.
+  never read or modify another tenant's company settings. **This guarantee is
+  only as strong as the caller's `tenant_id`:** accounts that were all
+  backfilled onto `DEFAULT_TENANT_ID` by `1760000000017` shared a single row
+  and therefore a single logo/tagline. `1760000000039-SplitCollapsedTenant`
+  separates them — see
+  ["Accounts collapsed onto the default tenant" in `11-multi-tenancy.md`](11-multi-tenancy.md).
+- `tagline` is a normal persisted column written by the generic `update()` patch
+  loop. It is **not** derived at read time and holds no client-side copy —
+  `POST /company/enhance-tagline` only returns AI text and never writes. The
+  frontend must not cache branding in `localStorage`; `useCompanyStore` is
+  in-memory and re-fetched from `GET /company` (see
+  `docs/guides/settings.md` in the frontend docs).
+- `COMPANY_DEFAULTS.logo` is `/imgs/brand/Aasvana_Logo.png`, served from
+  `aasva-frontend/public/imgs/brand/`. Rows seeded before that asset existed may
+  still hold the old missing path `/images/logo-light.svg`;
+  `1760000000039` repairs those in place.
 - Access is **JWT + tenant scoping only** (no `@Permissions()`). A regular
   `user`-role account can manage its own tenant's company settings — that is the
   whole point of the onboarding company step. `company:read` / `company:update`
@@ -134,7 +149,7 @@ images are resized and re-encoded to stay under the cap.
   - key empty, upload unreachable, ImageKit auth/format failure, or non-image
     data URL → the raw data URL is stored instead. A failed upload logs a
     warning and **never fails the PATCH** (branding saves always succeed).
-- Non-data-URL `logo` values (paths like `/images/logo-light.svg`, ImageKit URLs,
+- Non-data-URL `logo` values (paths like `/imgs/brand/Aasvana_Logo.png`, ImageKit URLs,
   `null`) pass through unchanged.
 
 ## ImageKit integration (`src/imagekit/`)
@@ -177,6 +192,7 @@ The frontend surfaces these messages directly (`api.utils` interceptor forwards
 - `src/database/migrations/1760000000013-CreateCompanySettingsTable.ts`
 - `src/database/migrations/1760000000014-SeedCompanySettingsPermissions.ts`
 - `src/database/migrations/1760000000017-AddTenantScoping.ts` (adds `tenant_id` + `UNIQUE (tenant_id)`)
+- `src/database/migrations/1760000000039-SplitCollapsedTenant.ts` (splits accounts collapsed onto the default tenant)
 - Multi-tenancy model: `11-multi-tenancy.md`
 
 ## Agent checklist
