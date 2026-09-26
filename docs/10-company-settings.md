@@ -165,21 +165,46 @@ unreachable / rejected. Configured in `AppModule`; consumed by `CompanyService.u
 Body: `{ "tagline"?: string }` (optional, max 500 chars; omitted → generates from
 the company name). Authenticated (no `@Permissions` required).
 
+Returns **`{ enhanced, options }`**: `enhanced` is the best-ranked line, and
+`options` holds up to 5 ranked candidates (`enhanced === options[0]`, so a
+client can safely read either).
+
 Calls the **Gemini** REST API (Google free tier, `gemini-2.0-flash` by default):
 
 - `GET` model: `GEMINI_MODEL` from env (default `gemini-2.0-flash`); a trailing
   version suffix like `-001` is stripped for the API URL.
 - Endpoint: `POST https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent?key=<GEMINI_API_KEY>`
-- Body: `systemInstruction` ("professional marketing tagline writer") +
-  `contents` (the current tagline to improve or the company name to generate
-  from) + `generationConfig` (`temperature: 0.8`, `maxOutputTokens: 80`).
-- Response parsed from `candidates[0].content.parts[0].text`, quotes stripped.
+- Body: `systemInstruction` (senior brand-copywriter role, hard style rules, and
+  5 worked few-shot examples across different industries) + `contents` (company
+  **name, website, legal form, and the existing tagline** so the industry can be
+  inferred) + `generationConfig` (`temperature: 0.9`, `maxOutputTokens: 400`).
+- The prompt asks for **5 clearly different angles**, not one line, so the user
+  gets real choice instead of a single average result. All `parts` of the
+  candidate are joined before parsing (models may split text across parts).
+
+`rankTaglines()` (private, `company.service.ts`) then turns the raw text into
+quality-ranked options:
+
+- Splits on newlines, strips list numbering/bullets/outer quotes, collapses
+  whitespace, drops lines under 12 or over 180 chars, dedupes case-insensitively,
+  and drops a line equal to the company name or a "Here are…" preamble.
+- Scores each survivor: **-100 per banned marketing term** ("leading",
+  "world-class", "seamless", "innovative", "transform", "solutions", …),
+  **-60 if it contains a digit** (invented stats), **+20** for 40–130 chars,
+  **+10** for under 16 words, **-5** per comma/semicolon. Higher is better.
+- Returns the top 5 by score. The cliché blacklist is the main quality lever —
+  the generic filler the model defaults to is exactly what makes a tagline read
+  as "not better".
 - `503` with a readable message when: `GEMINI_API_KEY` is empty, the request is
   unreachable/timeouts (30s), the key is rejected (`API_KEY_INVALID`), the model
-  is unavailable, the response is empty, or any non-2xx status.
+  is unavailable, **no line survives ranking**, or any non-2xx status.
 
 The frontend surfaces these messages directly (`api.utils` interceptor forwards
-`data.message`), e.g. "The Gemini API key is invalid."
+`data.message`), e.g. "The Gemini API key is invalid." `BrandingSection` puts
+`enhanced` into the input and lists the remaining `options` as clickable
+suggestions, with an **Undo** button that restores the pre-enhancement tagline.
+Neither the AI call nor choosing a suggestion persists anything — the normal
+Save button still applies it.
 
 ## Files
 
@@ -205,5 +230,8 @@ The frontend surfaces these messages directly (`api.utils` interceptor forwards
 - [ ] `logo: null` clears the logo; data-url uploads round-trip
 - [ ] Logo data URL → uploaded to ImageKit when a private key is set; stored raw otherwise; PATCH never fails on ImageKit errors
 - [ ] `defaultTaxRate` persists as numeric and validates 0–100
-- [ ] `enhance-tagline` returns `{ enhanced }` with a valid `GEMINI_API_KEY`, and a readable `503` without one
+- [ ] `enhance-tagline` returns `{ enhanced, options }` (with `options[0] === enhanced`, up to 5 entries) with a valid `GEMINI_API_KEY`, and a readable `503` without one
+- [ ] `enhance-tagline` output contains no banned cliché term and no invented digit/statistic when candidates are available
+- [ ] Response lines survive the 12–180 char filter, list numbering and quotes are stripped, and duplicates are collapsed
+- [ ] Brand-new tenant (`name = "Andaman Trip Maker"`) gets travel-specific output, not generic SaaS boilerplate
 - [ ] Frontend `useCompanyStore` is hydrated from `GET /company` and updated on `PATCH`

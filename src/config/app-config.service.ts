@@ -84,6 +84,17 @@ export class AppConfigService {
   }
 
   get geminiModel(): string {
-    return this.config.get<string>('GEMINI_MODEL', 'gemini-2.0-flash');
+    return this.config.get<string>('GEMINI_MODEL', 'gemini-3.8-flash');
+  }
+
+  get geminiFallbackModels(): string[] {
+    const raw = this.config.get<string>(
+      'GEMINI_FALLBACK_MODELS',
+      'gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3.5-flash,gemini-3.5-flash-lite',
+    );
+    return raw
+      .split(',')
+      .map((m) => m.trim())
+      .filter((m) => m.length > 0);
   }
 }

@@ -27,7 +27,6 @@ export class CompanyController {
 
   @Post('enhance-tagline')
   async enhanceTagline(@Body() dto: EnhanceTaglineDto) {
-    const enhanced = await this.companyService.enhanceTagline(dto.tagline);
-    return { enhanced };
+    return this.companyService.enhanceTagline(dto.tagline);
   }
 }
